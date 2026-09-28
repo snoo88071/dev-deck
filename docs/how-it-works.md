@@ -91,7 +91,7 @@ Everything has a default derived from your home folder; these environment variab
 - `src-tauri/src/sessions.rs`, `describe.rs`: Claude Code sessions and their descriptions.
 - `src-tauri/src/lib.rs`: tray, window and the commands the panel calls.
 - `src-tauri/src/bin/devdeck.rs`: the same data and actions as JSON, for the MCP server.
-- `ui/`: the panel, static HTML/CSS/JS with no build step, using
-  [Web Awesome](https://webawesome.com) components. Opened in a browser outside Tauri it runs
+- `ui/`: the panel, React + TypeScript with [Ant Design](https://ant.design), built by Vite
+  (`ui/src/`; the theme in `palette.ts`, the strings in `locales/`). Outside Tauri it runs
   on demo data.
 - `mcp/`: the MCP server in TypeScript, run directly by Node 24 (no build).

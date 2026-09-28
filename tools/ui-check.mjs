@@ -1,104 +1,145 @@
 /**
- * The panel in demo mode (outside Tauri, fake data), in Chromium: tabs with
- * mouse and keyboard, the remembered tab, `/` for the filter, the filter,
- * "Describe", a verdict in Cleanup, and no horizontal scrolling at 1280, 760
- * and 420 px. Saves screenshots to tools/shots/.
+ * The panel in a real browser, on demo data: navigation and keyboard, the page
+ * remembered across reloads, the filter ("/" and Esc), an open project surviving
+ * a refresh, stopping with confirmation, opt-in descriptions and "Describe", a
+ * verdict in Cleanup, theme and language menus, and no horizontal scrolling at
+ * 1280, 760 and 420 px in both themes. Screenshots go to tools/shots/.
  *
- *   npm run ui-check
+ *   npm run ui:build && npm run ui-check
  */
 import { chromium } from "playwright";
+import assert from "node:assert/strict";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import assert from "node:assert/strict";
+import { fileURLToPath } from "node:url";
+import { serve, URL } from "./serve.mjs";
 
-const HERE = dirname(fileURLToPath(import.meta.url));
-const PAGE = pathToFileURL(join(HERE, "..", "ui", "index.html")).href;
-const SHOTS = join(HERE, "shots");
+const SHOTS = join(dirname(fileURLToPath(import.meta.url)), "shots");
 mkdirSync(SHOTS, { recursive: true });
+const ok = (what) => console.log("ok  " + what);
 
+const stop = await serve();
 const browser = await chromium.launch();
-const ctx = await browser.newContext({ viewport: { width: 1280, height: 820 } });
-const page = await ctx.newPage();
 const errors = [];
-page.on("pageerror", (e) => errors.push(e.message));
-page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
-const ok = (msg) => console.log("ok  " + msg);
+try {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, colorScheme: "light" });
+  // English, and a clean slate on the first load only (later reloads keep what the page stored).
+  await context.addInitScript(() => {
+    if (!sessionStorage.getItem("started")) {
+      localStorage.clear();
+      localStorage.setItem("devdeck.lang", "en");
+      sessionStorage.setItem("started", "1");
+    }
+  });
+  const page = await context.newPage();
+  page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.goto(URL);
 
-await page.goto(PAGE);
-await page.waitForSelector("#sessions details.row");
-await page.waitForTimeout(1500); // the Web Awesome components come from the CDN
+  const menu = (name) => page.getByRole("menuitem", { name: new RegExp(`^${name}`) });
+  const heading = () => page.locator("header h4").textContent();
 
-// Tabs: with the keyboard (arrows on the bar), and the choice survives a reload.
-await page.locator("wa-tab[panel=sessions]").focus();
-await page.keyboard.press("ArrowRight");
-await page.keyboard.press("Enter");
-await page.waitForTimeout(300);
-assert.equal(await page.locator("#tabs").getAttribute("active"), "processes");
-ok("tabs with the keyboard");
-await page.reload();
-await page.waitForSelector("#groups details.row");
-await page.waitForTimeout(800);
-assert.equal(await page.locator("#tabs").getAttribute("active"), "processes");
-ok("the chosen tab survives a reload");
+  // Navigation: Sessions first, then the keyboard reaches the other pages.
+  await page.waitForSelector(".ant-menu");
+  assert.equal(await heading(), "Sessions");
+  await menu("Processes").focus();
+  await page.keyboard.press("Enter");
+  assert.equal(await heading(), "Processes");
+  ok("pages from the sidebar, with the keyboard");
 
-// "/" jumps to the filter, and the filter applies to the open tab.
-await page.evaluate(() => document.activeElement && document.activeElement.blur());
-await page.keyboard.press("/");
-await page.keyboard.type("blog");
-await page.waitForTimeout(300);
-assert.deepEqual(await page.locator("#groups details.row .name").allTextContents(), ["blog"]);
-ok("\"/\" and filter on projects");
-await page.keyboard.press("Escape");
-await page.waitForTimeout(300);
-assert.equal(await page.locator("#groups details.row").count(), 2);
-ok("Esc clears the filter");
+  await page.reload();
+  await page.waitForSelector(".ant-menu");
+  assert.equal(await heading(), "Processes");
+  ok("the open page survives a reload");
 
-// A project opens on click and shows the tree; it stays open on the next refresh (3 s).
-await page.locator("#groups details.row summary").first().click();
-await page.waitForTimeout(3500);
-assert.equal(await page.locator("#groups details.row").first().getAttribute("open"), "");
-assert.equal(await page.locator("#groups details.row .proc").first().isVisible(), true);
-ok("an open project stays open when the list refreshes");
-await page.screenshot({ path: join(SHOTS, "processes-1280.png") });
+  // Filter: "/" focuses it, words narrow the projects, Esc clears it.
+  const projects = page.locator(".ant-table").first().locator("tr.ant-table-row-level-0");
+  assert.equal(await projects.count(), 3);
+  await page.locator("body").click({ position: { x: 5, y: 700 } });
+  await page.keyboard.press("/");
+  assert.equal(await page.evaluate(() => document.activeElement?.id), "filter");
+  await page.keyboard.type("blog");
+  await page.waitForTimeout(100);
+  assert.equal(await projects.count(), 1);
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(100);
+  assert.equal(await projects.count(), 3);
+  ok("\"/\" and the filter, Esc clears it");
 
-// Sessions: descriptions are off until the switch turns them on; then "Describe" writes one.
-await page.locator("wa-tab[panel=sessions]").click();
-await page.waitForTimeout(300);
-assert.equal(await page.locator("#sessions wa-button", { hasText: "Describe" }).count(), 0);
-assert.equal(await page.locator("#describe-switch").evaluate((el) => el.checked), false);
-ok("descriptions off by default, no \"Describe\" button");
-await page.locator("#describe-switch").click();
-await page.locator("#sessions wa-button", { hasText: "Describe" }).first().waitFor({ timeout: 3000 });
-await page.locator("#sessions details.row").first().locator("wa-button", { hasText: "Describe" }).click();
-await page.waitForFunction(() => document.querySelector("#sessions .desc")?.textContent.includes("Redesigning"), null, { timeout: 5000 });
-ok("\"Describe\"");
-await page.screenshot({ path: join(SHOTS, "sessions-1280.png") });
+  // Opening a project opens its whole tree, and it stays open across a refresh (every 3 s).
+  await projects.first().locator(".ant-table-row-expand-icon").click();
+  const tsxRow = page.locator("tr.ant-table-row-level-3");
+  await tsxRow.first().waitFor();
+  await page.waitForTimeout(3500);
+  assert.ok(await tsxRow.first().isVisible());
+  ok("an open project keeps its tree open when the list refreshes");
 
-// Cleanup: the verdict removes the proposal and clears the count.
-await page.locator("wa-tab[panel=cleanup]").click();
-await page.waitForTimeout(300);
-assert.equal(await page.locator("#count-cleanup").textContent(), "1");
-await page.screenshot({ path: join(SHOTS, "cleanup-1280.png") });
-await page.locator(".proposal wa-button", { hasText: "Right" }).click();
-await page.waitForTimeout(800);
-assert.equal(await page.locator(".proposal").count(), 0);
-assert.equal(await page.locator("#count-cleanup").isHidden(), true);
-ok("verdict in Cleanup");
+  // Stop asks first, then the project is gone.
+  const blog = page.locator("tr.ant-table-row-level-0", { hasText: "blog" });
+  await blog.getByRole("button", { name: /Stop the project/ }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.locator(".ant-modal-confirm-title", { hasText: 'Stop "blog"?' }).waitFor();
+  await dialog.getByRole("button", { name: "Stop" }).click();
+  await blog.waitFor({ state: "detached" });
+  ok("stop asks for confirmation, then the project goes");
+  await page.screenshot({ path: join(SHOTS, "processes-1280-light.png") });
 
-// No horizontal scrolling, on every tab and at three widths.
-for (const width of [1280, 760, 420]) {
-  await page.setViewportSize({ width, height: 820 });
-  for (const tab of ["sessions", "processes", "cleanup"]) {
-    await page.locator(`wa-tab[panel=${tab}]`).click();
-    await page.waitForTimeout(250);
-    const over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-    assert.ok(over <= 0, `${tab} at ${width} px scrolls by ${over} px`);
-    if (width !== 1280) await page.screenshot({ path: join(SHOTS, `${tab}-${width}.png`) });
+  // Sessions: descriptions are off until the switch turns them on; then "Describe" writes one.
+  await menu("Sessions").click();
+  const describe = page.getByRole("button", { name: "Describe", exact: true });
+  assert.equal(await describe.count(), 0);
+  assert.equal(await page.locator("#describe-switch").getAttribute("aria-checked"), "false");
+  await page.locator("#describe-switch").click();
+  await describe.first().waitFor();
+  await describe.first().click();
+  await page.getByText(/Redesigning the Dev Deck panel/).waitFor({ timeout: 5000 });
+  ok("descriptions are opt-in; \"Describe\" writes one");
+  await page.screenshot({ path: join(SHOTS, "sessions-1280-light.png") });
+
+  // Cleanup: a verdict removes the proposal and the count.
+  await menu("Cleanup").click();
+  assert.equal(await menu("Cleanup").locator(".ant-badge-count").textContent(), "1");
+  await page.getByRole("button", { name: "Right, keep it" }).click();
+  await page.getByText(/Nothing to judge/).waitFor();
+  await menu("Cleanup").locator(".ant-badge-count").waitFor({ state: "detached" });
+  ok("a verdict in Cleanup clears the proposal and the count");
+
+  // Theme and language menus.
+  await page.getByRole("button", { name: "Theme" }).click();
+  await page.getByRole("menuitem", { name: "Dark" }).click();
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), "dark");
+  await page.getByRole("button", { name: "Language" }).click();
+  await page.getByRole("menuitem", { name: "Italiano" }).click();
+  await menu("Processi").waitFor();
+  assert.equal(await page.evaluate(() => document.documentElement.lang), "it");
+  ok("theme and language menus");
+
+  // Every page at three widths, in both themes: no horizontal scrolling.
+  const wide = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+  await wide.addInitScript(() => localStorage.setItem("devdeck.lang", "en"));
+  const p = await wide.newPage();
+  p.on("pageerror", (e) => errors.push(e.message));
+  for (const theme of ["light", "dark"]) {
+    await p.emulateMedia({ colorScheme: theme });
+    for (const width of [1280, 760, 420]) {
+      await p.setViewportSize({ width, height: 720 });
+      await p.goto(URL);
+      await p.waitForSelector(".ant-menu");
+      for (const [i, name] of ["sessions", "processes", "cleanup"].entries()) {
+        await p.locator(".ant-menu-item").nth(i).click();
+        await p.mouse.move(width - 4, 716);
+        await p.waitForTimeout(200);
+        const scroll = await p.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+        assert.ok(scroll <= 0, `${name} at ${width} px (${theme}) scrolls sideways by ${scroll} px`);
+        if (width !== 1280 || theme !== "light") await p.screenshot({ path: join(SHOTS, `${name}-${width}-${theme}.png`) });
+      }
+    }
   }
-}
-ok("no horizontal scrolling at 1280, 760 and 420 px");
+  ok("no horizontal scrolling at 1280, 760 and 420 px, light and dark");
 
-assert.deepEqual(errors, []);
-ok("no console errors");
-await browser.close();
+  assert.deepEqual(errors, [], "console errors");
+  ok("no console errors");
+} finally {
+  await browser.close();
+  stop();
+}

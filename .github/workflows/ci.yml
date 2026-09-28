@@ -2,7 +2,6 @@ name: CI
 
 on:
   push:
-    branches: [main]
   pull_request:
 
 jobs:
@@ -25,12 +24,12 @@ jobs:
       - name: Rust
         run: cargo test && cargo build --bin devdeck
         working-directory: src-tauri
-      - name: Cleanup rules
-        run: node --test ui/cleanup.test.js
-      - name: Contrast
-        run: npm run contrast
-      - name: Panel (demo, Playwright)
-        run: npx playwright install chromium && npm run ui-check
+      - name: Cleanup rules and translations
+        run: node --test ui/cleanup.test.js ui/locales.test.js
+      - name: Panel build (types and bundle)
+        run: npm run ui:build
+      - name: Panel in Playwright (demo), contrast in both themes
+        run: npx playwright install chromium && npm run ui-check && npm run contrast
       - name: MCP
         run: npm run check && npm test
         working-directory: mcp

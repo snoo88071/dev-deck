@@ -1,77 +1,18 @@
 <!doctype html>
-<html lang="en" class="wa-dark">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dev Deck</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="https://ka-f.webawesome.com/webawesome@3.14.0/styles/themes/default.css">
-  <link rel="stylesheet" href="https://ka-f.webawesome.com/webawesome@3.14.0/styles/utilities.css">
-  <script type="module" src="https://ka-f.webawesome.com/webawesome@3.14.0/webawesome.loader.js"></script>
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <header class="top">
-    <div class="brand">
-      <h1>Dev Deck</h1>
-      <p id="summary" class="summary"></p>
-    </div>
-    <wa-input id="filter" size="small" placeholder="Filter" with-clear aria-label="Filter the open tab">
-      <wa-icon slot="start" name="magnifying-glass" aria-hidden="true"></wa-icon>
-      <kbd slot="end" class="kbd" aria-hidden="true">/</kbd>
-    </wa-input>
-  </header>
-
-  <div id="error" class="toast" hidden role="alert"></div>
-
-  <wa-tab-group id="tabs" activation="manual">
-    <wa-tab slot="nav" panel="sessions">Sessions <span class="count" id="count-sessions">0</span></wa-tab>
-    <wa-tab slot="nav" panel="processes">Processes <span class="count" id="count-processes">0</span></wa-tab>
-    <wa-tab slot="nav" panel="cleanup">Cleanup <span class="count attention" id="count-cleanup" hidden>0</span></wa-tab>
-
-    <wa-tab-panel name="sessions">
-      <div class="toolbar">
-        <p class="lede" id="sessions-lede"></p>
-        <div class="describe-toggle">
-          <wa-switch id="describe-switch" size="small">Describe sessions</wa-switch>
-          <p class="hint" id="describe-hint">Uses <code>claude -p</code> (Haiku): sends the tail of each transcript, ~1¢ per description.</p>
-        </div>
-      </div>
-      <div id="sessions" class="rows" role="list"></div>
-    </wa-tab-panel>
-
-    <wa-tab-panel name="processes">
-      <div id="groups" class="rows" role="list"></div>
-      <section id="claude-box" class="subtle-section" hidden>
-        <h2 class="section-title" id="claude-summary"></h2>
-        <div id="claude-groups" class="rows" role="list"></div>
-      </section>
-    </wa-tab-panel>
-
-    <wa-tab-panel name="cleanup">
-      <div class="toolbar">
-        <p class="lede">
-          Shadow mode: no proposal closes anything by itself. Your verdicts measure, per category,
-          where Claude Code could act on its own. Proposals made by Claude land here too.
-        </p>
-        <wa-button id="cleanup-scan" size="small" variant="brand">
-          <wa-icon slot="start" name="magnifying-glass" aria-hidden="true"></wa-icon>
-          Scan now
-        </wa-button>
-      </div>
-      <div id="cleanup-list" class="stack"></div>
-    </wa-tab-panel>
-  </wa-tab-group>
-
-  <wa-dialog id="confirm" label="Stop?" light-dismiss>
-    <div id="confirm-text"></div>
-    <wa-button slot="footer" appearance="plain" data-dialog="close">Cancel</wa-button>
-    <wa-button slot="footer" id="confirm-go" variant="danger">Stop</wa-button>
-  </wa-dialog>
-
-  <script src="cleanup.js"></script>
-  <script src="app.js"></script>
-</body>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Dev Deck</title>
+    <style>
+      html { background: #eef0f4; }
+      html, body, #root { height: 100%; margin: 0; }
+      /* Until React paints: no white flash on a dark system. */
+      @media (prefers-color-scheme: dark) { html { background: #0d1015; color-scheme: dark; } }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>

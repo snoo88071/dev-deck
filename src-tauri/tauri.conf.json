@@ -4,10 +4,12 @@
   "version": "0.1.0",
   "identifier": "dev.devdeck.desktop",
   "build": {
-    "frontendDist": "../ui"
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../ui/dist",
+    "beforeDevCommand": "npm run ui:dev",
+    "beforeBuildCommand": "npm run ui:build"
   },
   "app": {
-    "withGlobalTauri": true,
     "windows": [
       {
         "label": "main",
@@ -19,7 +21,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self' https://ka-f.webawesome.com; style-src 'self' 'unsafe-inline' https://ka-f.webawesome.com https://fonts.googleapis.com; font-src 'self' data: https://ka-f.webawesome.com https://ka-f.fontawesome.com https://fonts.gstatic.com; img-src 'self' data: https://ka-f.webawesome.com https://ka-f.fontawesome.com; connect-src ipc: http://ipc.localhost https://ka-f.webawesome.com https://ka-f.fontawesome.com"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; connect-src ipc: http://ipc.localhost"
     }
   },
   "bundle": {

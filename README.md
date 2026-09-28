@@ -5,7 +5,10 @@ grouped by project. See them, stop them, restart them, open their port or folder
 
 Task Manager shows twelve `node.exe`. Dev Deck shows `acme-shop/backend · npm → tsx → node · :8792`.
 
-![Processes, grouped by project](docs/processes.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/processes-dark.png">
+  <img alt="Processes, grouped by project, with a project's process tree open" src="docs/processes.png">
+</picture>
 
 ## Features
 
@@ -22,8 +25,12 @@ Task Manager shows twelve `node.exe`. Dev Deck shows `acme-shop/backend · npm �
 - **Cleanup in shadow mode**: proposes what to close (orphan MCP servers, duplicates, idle
   servers) with evidence, and never closes anything by itself.
 - **An MCP server** so Claude Code can see and manage the same processes.
+- **Light and dark**, following Windows or pinned from the sidebar, in five languages.
 
-![Claude Code sessions](docs/sessions.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/sessions-dark.png">
+  <img alt="Open Claude Code sessions with their descriptions" src="docs/sessions.png">
+</picture>
 
 More detail: [how it works](docs/how-it-works.md).
 
@@ -64,6 +71,12 @@ Off by default. When on, Dev Deck sends the tail of each session's transcript to
 `claude -p --model haiku` (about 1¢ per description) and caches the answer. Turn them on
 with the switch in the Sessions tab, or with `DEVDECK_DESCRIBE=1`.
 
+## Languages
+
+English and Italian, plus Spanish, French and Brazilian Portuguese as **drafts that need a
+native speaker's review** (`ui/src/locales/`). The panel follows the Windows language; the
+menu at the bottom of the sidebar changes it. Corrections are very welcome.
+
 ## Known limitations
 
 - **Windows only for now.** The code compiles elsewhere, but restart and folder opening are
@@ -71,7 +84,6 @@ with the switch in the Sessions tab, or with `DEVDECK_DESCRIBE=1`.
 - Processes started as administrator have no readable working directory: they land in
   "unknown folder" and can't be restarted.
 - Restart always opens a new `cmd` window.
-- The UI loads Web Awesome and fonts from a CDN: offline, it works but looks unstyled.
 - It doesn't start with Windows on its own yet.
 
 ## Contributing

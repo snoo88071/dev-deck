@@ -1,0 +1,27 @@
+/**
+ * Every action goes through Rust, which re-checks the pids. Outside Tauri (a plain
+ * browser, `npm run ui:dev`) the same calls answer from demo data.
+ */
+import { invoke, isTauri } from "@tauri-apps/api/core";
+import { demoCall } from "./demo";
+import type { DescribeSettings, Description, Group, SessionRow, ShadowRecord } from "./types";
+
+export const DEMO = !isTauri();
+
+function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  return DEMO ? (demoCall(cmd, args) as Promise<T>) : invoke<T>(cmd, args);
+}
+
+export const api = {
+  list: () => call<Group[]>("list"),
+  kill: (pids: number[]) => call<number>("kill", { pids }),
+  restart: (pid: number, title: string) => call<void>("restart", { pid, title }),
+  openPort: (port: number) => call<void>("open_port", { port }),
+  openFolder: (path: string, editor: boolean) => call<void>("open_folder", { path, editor }),
+  sessions: () => call<SessionRow[]>("sessions"),
+  describeSession: (pid: number) => call<Description>("describe_session", { pid }),
+  describeSettings: () => call<DescribeSettings>("describe_settings"),
+  setDescribe: (on: boolean) => call<void>("set_describe", { on }),
+  shadowRead: () => call<ShadowRecord[]>("shadow_read"),
+  shadowAppend: (record: ShadowRecord) => call<void>("shadow_append", { record }),
+};
