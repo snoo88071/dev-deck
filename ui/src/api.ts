@@ -22,6 +22,7 @@ export const api = {
   describeSession: (pid: number) => call<Description>("describe_session", { pid }),
   describeSettings: () => call<DescribeSettings>("describe_settings"),
   setDescribe: (on: boolean) => call<void>("set_describe", { on }),
+  appLanguage: () => call<string>("app_language"),
   shadowRead: () => call<ShadowRecord[]>("shadow_read"),
   shadowAppend: (record: ShadowRecord) => call<void>("shadow_append", { record }),
 };

@@ -13,7 +13,8 @@
     "ui:preview": "vite preview",
     "ui-check": "node tools/ui-check.mjs",
     "contrast": "node tools/contrast.mjs",
-    "screenshots": "node tools/screenshots.mjs"
+    "screenshots": "node tools/screenshots.mjs",
+    "app-check": "node tools/app-check.mjs"
   },
   "devDependencies": {
     "@tauri-apps/cli": "2.11.5",

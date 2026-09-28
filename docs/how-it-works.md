@@ -33,8 +33,8 @@ terminal, from VS Code, and background jobs. The daemon and `claude -p` runs are
 - **Descriptions (opt-in)**: `claude -p --model haiku --no-session-persistence`, fed with the
   tail of the transcript (the last text messages, shortened), started from
   `~/.dev-deck/claude-p` so it doesn't create a transcript of its own. About 7 seconds and a
-  fraction of a cent each. Cached in `~/.dev-deck/sessions.json`, tied to the transcript's size
-  and last modification.
+  fraction of a cent each, written in the app's language (the Windows one, or English).
+  Cached in `~/.dev-deck/sessions.json`, tied to the transcript's size and last modification.
 - **Refresh**: while descriptions are on and the app is running, every 5 minutes it redoes (one
   at a time) the ones whose transcript changed and whose description is older than 30 minutes.
   "Describe" redoes one right away.
@@ -82,6 +82,7 @@ Everything has a default derived from your home folder; these environment variab
 | `DEVDECK_SESSIONS` | path of the descriptions cache (default `~/.dev-deck/sessions.json`) |
 | `DEVDECK_BIN` | path of the `devdeck` binary, for the MCP server |
 | `CLAUDE_BIN` | the Claude Code CLI used for descriptions (default `claude`) |
+| `DEVDECK_LANG` | `en`, `it`, `es`, `fr` or `pt`: the app's language instead of the Windows one |
 
 ## Layout
 

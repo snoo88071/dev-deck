@@ -17,8 +17,7 @@ let checked = 0;
 
 try {
   for (const theme of ["light", "dark"]) {
-    const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, colorScheme: theme, reducedMotion: "reduce" });
-    await context.addInitScript(() => localStorage.setItem("devdeck.lang", "en"));
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, colorScheme: theme, reducedMotion: "reduce", locale: "en-US" });
     const page = await context.newPage();
     await page.goto(URL);
     await page.waitForSelector(".ant-menu");

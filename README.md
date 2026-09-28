@@ -25,7 +25,7 @@ Task Manager shows twelve `node.exe`. Dev Deck shows `acme-shop/backend Â· npm â
 - **Cleanup in shadow mode**: proposes what to close (orphan MCP servers, duplicates, idle
   servers) with evidence, and never closes anything by itself.
 - **An MCP server** so Claude Code can see and manage the same processes.
-- **Light and dark**, following Windows or pinned from the sidebar, in five languages.
+- **Light and dark**, following Windows or pinned from the sidebar, in the Windows language.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/sessions-dark.png">
@@ -74,8 +74,9 @@ with the switch in the Sessions tab, or with `DEVDECK_DESCRIBE=1`.
 ## Languages
 
 English and Italian, plus Spanish, French and Brazilian Portuguese as **drafts that need a
-native speaker's review** (`ui/src/locales/`). The panel follows the Windows language; the
-menu at the bottom of the sidebar changes it. Corrections are very welcome.
+native speaker's review** (`ui/src/locales/`). The app speaks the Windows display language, in
+the panel and in the session descriptions alike; any other language gets English.
+Corrections are very welcome.
 
 ## Known limitations
 

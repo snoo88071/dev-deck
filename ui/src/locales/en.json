@@ -13,12 +13,12 @@
     "light": "Light",
     "dark": "Dark"
   },
-  "language": {
-    "label": "Language"
-  },
   "header": {
     "demo": "demo",
-    "sessions": "{{open}} open · {{recent}} active in the last hour",
+    "open_one": "{{count}} open",
+    "open_other": "{{count}} open",
+    "recent_one": "{{count}} active in the last hour",
+    "recent_other": "{{count}} active in the last hour",
     "cleanupPending_one": "{{count}} proposal waits for your verdict",
     "cleanupPending_other": "{{count}} proposals wait for your verdict",
     "cleanupNone": "Nothing waiting for a verdict",

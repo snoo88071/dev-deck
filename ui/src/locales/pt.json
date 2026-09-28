@@ -13,12 +13,12 @@
     "light": "Claro",
     "dark": "Escuro"
   },
-  "language": {
-    "label": "Idioma"
-  },
   "header": {
     "demo": "demo",
-    "sessions": "{{open}} abertas · {{recent}} ativas na última hora",
+    "open_one": "{{count}} aberta",
+    "open_other": "{{count}} abertas",
+    "recent_one": "{{count}} ativa na última hora",
+    "recent_other": "{{count}} ativas na última hora",
     "cleanupPending_one": "{{count}} proposta aguarda seu veredito",
     "cleanupPending_other": "{{count}} propostas aguardam seu veredito",
     "cleanupNone": "Nada aguardando veredito",
@@ -60,9 +60,9 @@
     "restart": "Reiniciar",
     "restartTitle": "Reiniciar?",
     "in": "em {{path}}",
-    "notStopped": "Não parado: {{error}}",
+    "notStopped": "Não foi possível parar: {{error}}",
     "restarted": "Reiniciado em uma nova janela, com o mesmo comando, a mesma pasta e o mesmo ambiente.",
-    "notRestarted": "Não reiniciado: {{error}}"
+    "notRestarted": "Não foi possível reiniciar: {{error}}"
   },
   "processes": {
     "name": "Nome",
@@ -97,7 +97,7 @@
     "statusHour": "ativa na última hora",
     "statusIdle": "inativa",
     "uncertain": "transcrição incerta",
-    "uncertainHint": "Várias transcrições possíveis, ou criada muito depois do início: foi usada a escrita mais recentemente",
+    "uncertainHint": "Várias transcrições possíveis, ou criada muito depois do início: foi usada a modificada mais recentemente",
     "nothingWritten": "Nada escrito ainda.",
     "noDescription": "Ainda sem descrição: ela se escreve sozinha em poucos minutos, ou clique em Descrever.",
     "descriptionsOff": "As descrições estão desativadas.",
@@ -119,7 +119,7 @@
     "match": "Associação",
     "matchId": "pelo id no comando",
     "matchTime": "por tempo: a única criada após o início",
-    "matchUncertain": "incerta: foi usada a escrita mais recentemente",
+    "matchUncertain": "incerta: foi usada a modificada mais recentemente",
     "matchNone": "sem transcrição",
     "description": "Descrição",
     "descriptionFresh": "escrita {{ago}}, atualizada",
@@ -131,7 +131,7 @@
     "shadowText": "Nada fecha sozinho. Seus vereditos medem, por categoria, onde o Claude Code poderia agir por conta própria. As propostas do Claude também chegam aqui.",
     "scan": "Verificar agora",
     "scanFailed": "A verificação falhou: {{error}}",
-    "scanNothing": "Nenhuma proposta: nada órfão, duplicado ou parado há muito tempo.",
+    "scanNothing": "Nenhuma proposta: nada órfão, duplicado ou inativo há muito tempo.",
     "scanNoNew": "Nenhuma proposta nova: as encontradas já aguardam um veredito, ou você as descartou.",
     "proposal": "Proposta",
     "proposed": "Quando",
@@ -155,7 +155,7 @@
       "orphan-mcp": "Servidor MCP órfão",
       "duplicate": "Duplicado",
       "session": "Iniciado por esta sessão",
-      "idle": "Parado há muito tempo"
+      "idle": "Inativo há muito tempo"
     }
   }
 }

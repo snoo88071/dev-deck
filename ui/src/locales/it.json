@@ -13,12 +13,12 @@
     "light": "Chiaro",
     "dark": "Scuro"
   },
-  "language": {
-    "label": "Lingua"
-  },
   "header": {
     "demo": "demo",
-    "sessions": "{{open}} aperte · {{recent}} attive nell'ultima ora",
+    "open_one": "{{count}} aperta",
+    "open_other": "{{count}} aperte",
+    "recent_one": "{{count}} attiva nell'ultima ora",
+    "recent_other": "{{count}} attive nell'ultima ora",
     "cleanupPending_one": "{{count}} proposta aspetta il tuo giudizio",
     "cleanupPending_other": "{{count}} proposte aspettano il tuo giudizio",
     "cleanupNone": "Niente da giudicare",

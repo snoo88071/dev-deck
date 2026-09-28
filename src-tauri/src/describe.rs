@@ -119,9 +119,14 @@ fn now() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
 }
 
-const SYSTEM: &str = "Here is the final part of a conversation between a person and Claude Code (a coding assistant), in a session opened in a folder. \
-In one or two sentences in English, say what is being worked on right now and how far along it is: for example \"Adding Claude Code sessions to the panel; the Rust side is done, the UI is missing.\". \
-Write without names of people and without gendered pronouns or adjectives for the person. Only the sentences, no preamble, no lists.";
+/// The instructions for `claude -p`, asking for the app's language (the Windows one, see locale.rs).
+pub fn system_prompt(language: &str) -> String {
+    format!(
+        "Here is the final part of a conversation between a person and Claude Code (a coding assistant), in a session opened in a folder. \
+In one or two sentences in {language}, say what is being worked on right now and how far along it is: for example (in English) \"Adding Claude Code sessions to the panel; the Rust side is done, the UI is missing.\". \
+Write without names of people and without gendered pronouns or adjectives for the person. Only the sentences, no preamble, no lists."
+    )
+}
 
 /// The text for `claude -p`: folder, title, last prompt and the last messages, shortened.
 pub fn prompt_for(s: &Session, messages: &[(String, String)]) -> String {
@@ -161,7 +166,7 @@ fn ask_claude(prompt: &str) -> Result<String, String> {
         "json",
         "--no-session-persistence",
         "--append-system-prompt",
-        SYSTEM,
+        &system_prompt(crate::locale::english_name(crate::locale::app_language())),
         "--tools",
         "",
         "--disable-slash-commands",
@@ -273,6 +278,12 @@ mod tests {
             children: 0,
             children_memory: 0,
         }
+    }
+
+    #[test]
+    fn the_description_is_asked_in_the_app_language() {
+        assert!(system_prompt(crate::locale::english_name("it")).contains("In one or two sentences in Italian"));
+        assert!(system_prompt(crate::locale::english_name("de")).contains("In one or two sentences in English"));
     }
 
     #[test]

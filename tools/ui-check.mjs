@@ -2,7 +2,8 @@
  * The panel in a real browser, on demo data: navigation and keyboard, the page
  * remembered across reloads, the filter ("/" and Esc), an open project surviving
  * a refresh, stopping with confirmation, opt-in descriptions and "Describe", a
- * verdict in Cleanup, theme and language menus, and no horizontal scrolling at
+ * verdict in Cleanup, the theme menu, the language following the system (English
+ * when it isn't translated), and no horizontal scrolling at
  * 1280, 760 and 420 px in both themes. Screenshots go to tools/shots/.
  *
  *   npm run ui:build && npm run ui-check
@@ -30,12 +31,11 @@ const stop = await serve();
 const browser = await chromium.launch();
 const errors = [];
 try {
-  const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, colorScheme: "light", reducedMotion: "reduce" });
-  // English, and a clean slate on the first load only (later reloads keep what the page stored).
+  const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, colorScheme: "light", reducedMotion: "reduce", locale: "en-US" });
+  // A clean slate on the first load only (later reloads keep what the page stored).
   await context.addInitScript(() => {
     if (!sessionStorage.getItem("started")) {
       localStorage.clear();
-      localStorage.setItem("devdeck.lang", "en");
       sessionStorage.setItem("started", "1");
     }
   });
@@ -110,19 +110,25 @@ try {
   await menu("Cleanup").locator(".ant-badge-count").waitFor({ state: "detached" });
   ok("a verdict in Cleanup clears the proposal and the count");
 
-  // Theme and language menus.
+  // The theme menu.
   await page.getByRole("button", { name: "Theme" }).click();
   await page.getByRole("menuitem", { name: "Dark" }).click();
   assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), "dark");
-  await page.getByRole("button", { name: "Language" }).click();
-  await page.getByRole("menuitem", { name: "Italiano" }).click();
-  await menu("Processi").waitFor();
-  assert.equal(await page.evaluate(() => document.documentElement.lang), "it");
-  ok("theme and language menus");
+  ok("the theme menu");
+
+  // The language follows the system; one the panel doesn't have means English.
+  for (const [locale, lang, processes] of [["it-IT", "it", "Processi"], ["pt-BR", "pt", "Processos"], ["de-DE", "en", "Processes"]]) {
+    const c = await browser.newContext({ locale, reducedMotion: "reduce" });
+    const lp = await c.newPage();
+    await lp.goto(URL);
+    await lp.getByRole("menuitem", { name: new RegExp(`^${processes}`) }).waitFor();
+    assert.equal(await lp.evaluate(() => document.documentElement.lang), lang, locale);
+    await c.close();
+  }
+  ok("the language follows the system, English when it isn't translated");
 
   // Every page at three widths, in both themes: no horizontal scrolling.
-  const wide = await browser.newContext({ viewport: { width: 1280, height: 720 }, reducedMotion: "reduce" });
-  await wide.addInitScript(() => localStorage.setItem("devdeck.lang", "en"));
+  const wide = await browser.newContext({ viewport: { width: 1280, height: 720 }, reducedMotion: "reduce", locale: "en-US" });
   const p = await wide.newPage();
   p.on("pageerror", (e) => errors.push(e.message));
   for (const theme of ["light", "dark"]) {

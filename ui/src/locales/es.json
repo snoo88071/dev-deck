@@ -13,12 +13,12 @@
     "light": "Claro",
     "dark": "Oscuro"
   },
-  "language": {
-    "label": "Idioma"
-  },
   "header": {
     "demo": "demo",
-    "sessions": "{{open}} abiertas · {{recent}} activas en la última hora",
+    "open_one": "{{count}} abierta",
+    "open_other": "{{count}} abiertas",
+    "recent_one": "{{count}} activa en la última hora",
+    "recent_other": "{{count}} activas en la última hora",
     "cleanupPending_one": "{{count}} propuesta espera tu veredicto",
     "cleanupPending_other": "{{count}} propuestas esperan tu veredicto",
     "cleanupNone": "Nada pendiente de veredicto",
@@ -69,7 +69,7 @@
     "ports": "Puertos",
     "memory": "Memoria",
     "cpu": "CPU",
-    "uptime": "Activo desde",
+    "uptime": "Tiempo activo",
     "unknownFolder": "carpeta desconocida",
     "claudeCode": "Claude Code",
     "mcpRow_one": "{{count}} proceso lanzado por Claude Code (servidor MCP)",
@@ -143,8 +143,8 @@
     "byPanel": "por el panel",
     "gone": "ya no existe",
     "close": "Cerrar",
-    "keep": "Correcta, dejar",
-    "keepShort": "Dejar",
+    "keep": "Correcta, mantener",
+    "keepShort": "Mantener",
     "alreadyClosed": "Correcta (ya cerrado)",
     "wrong": "Incorrecta",
     "why": "Por qué (opcional, se guarda con tu veredicto)",

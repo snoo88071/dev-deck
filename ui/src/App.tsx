@@ -7,12 +7,11 @@ import { useTranslation } from "react-i18next";
 import { Badge, Button, Dropdown, Flex, Input, Layout, Menu, Tooltip, Typography, theme, type InputRef } from "antd";
 import {
   AppstoreOutlined, ClearOutlined, DesktopOutlined, MenuFoldOutlined, MenuUnfoldOutlined,
-  MoonOutlined, RobotOutlined, SearchOutlined, SunOutlined, TranslationOutlined,
+  MoonOutlined, RobotOutlined, SearchOutlined, SunOutlined,
 } from "@ant-design/icons";
 import { DEMO } from "./api";
 import { MONO } from "./components/bits";
 import { mb } from "./format";
-import { LANGUAGES, setLanguage, type Lang } from "./i18n";
 import { useDeck } from "./store";
 import type { ThemeMode } from "./theme";
 import { SessionsPage } from "./pages/Sessions";
@@ -56,16 +55,6 @@ function ThemeMenu({ mode, setMode }: { mode: ThemeMode; setMode: (m: ThemeMode)
   return (
     <Dropdown trigger={["click"]} menu={{ items, selectable: true, selectedKeys: [mode], onClick: (e) => setMode(e.key as ThemeMode) }}>
       <Tooltip title={t("theme.label")} placement="right"><Button type="text" icon={icons[mode]} aria-label={t("theme.label")} /></Tooltip>
-    </Dropdown>
-  );
-}
-
-function LanguageMenu() {
-  const { t, i18n } = useTranslation();
-  const items = LANGUAGES.map((l) => ({ key: l.code, label: <span lang={l.code}>{l.label}</span> }));
-  return (
-    <Dropdown trigger={["click"]} menu={{ items, selectable: true, selectedKeys: [i18n.language], onClick: (e) => setLanguage(e.key as Lang) }}>
-      <Tooltip title={t("language.label")} placement="right"><Button type="text" icon={<TranslationOutlined aria-hidden />} aria-label={t("language.label")} /></Tooltip>
     </Dropdown>
   );
 }
@@ -122,7 +111,7 @@ export function App({ themeMode, setThemeMode }: { themeMode: ThemeMode; setThem
   ];
 
   const headers: Record<Page, [string, string, string]> = {
-    sessions: [t("nav.sessions"), t("header.sessions", { open: deck.sessions.length, recent }), t("header.filterSessions")],
+    sessions: [t("nav.sessions"), `${t("header.open", { count: deck.sessions.length })} · ${t("header.recent", { count: recent })}`, t("header.filterSessions")],
     processes: [
       t("nav.processes"),
       `${t("count.project", { count: mine.length })} · ${t("count.process", { count: nProcs })} · ${mb(memory)}`,
@@ -159,7 +148,6 @@ export function App({ themeMode, setThemeMode }: { themeMode: ThemeMode; setThem
           </nav>
           <Flex vertical={folded} justify="center" align="center" gap={4} style={{ padding: 8, borderTop: `1px solid ${token.colorBorderSecondary}` }}>
             <ThemeMenu mode={themeMode} setMode={setThemeMode} />
-            <LanguageMenu />
             <Tooltip title={folded ? t("nav.expand") : t("nav.fold")} placement="right">
               <Button type="text" icon={folded ? <MenuUnfoldOutlined aria-hidden /> : <MenuFoldOutlined aria-hidden />} aria-label={folded ? t("nav.expand") : t("nav.fold")} onClick={toggleSider} />
             </Tooltip>

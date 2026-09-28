@@ -4,6 +4,7 @@ pub mod actions;
 pub mod procs;
 pub mod sessions;
 pub mod describe;
+pub mod locale;
 
 use std::sync::Mutex;
 use sysinfo::System;
@@ -91,6 +92,12 @@ fn describe_settings() -> serde_json::Value {
     serde_json::json!({ "enabled": enabled, "forced": forced })
 }
 
+/// The Windows display language when the panel has it, English otherwise (locale.rs).
+#[tauri::command]
+fn app_language() -> &'static str {
+    locale::app_language()
+}
+
 #[tauri::command]
 fn set_describe(on: bool) -> Result<(), String> {
     describe::set_enabled(on)
@@ -136,7 +143,7 @@ fn toggle(app: &AppHandle) {
 pub fn run() {
     tauri::Builder::default()
         .manage(Sys(Mutex::new(System::new())))
-        .invoke_handler(tauri::generate_handler![list, kill, restart, open_port, open_folder, shadow_read, shadow_append, sessions, describe_session, describe_settings, set_describe])
+        .invoke_handler(tauri::generate_handler![list, kill, restart, open_port, open_folder, shadow_read, shadow_append, sessions, describe_session, describe_settings, set_describe, app_language])
         .setup(|app| {
             auto_describe();
             let show = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;

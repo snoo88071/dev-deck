@@ -1,7 +1,6 @@
 import "@fontsource/jetbrains-mono/400.css";
 import "@fontsource/jetbrains-mono/500.css";
 import "./global.css";
-import "./i18n";
 import { StrictMode, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { useTranslation } from "react-i18next";
@@ -15,6 +14,7 @@ import { App } from "./App";
 import { DeckProvider } from "./store";
 import { useReducedMotion, useThemeMode } from "./theme";
 import { themeConfig } from "./palette";
+import { initLanguage } from "./i18n";
 
 const ANTD_LOCALES = { en: enUS, it: itIT, es: esES, fr: frFR, pt: ptBR } as const;
 
@@ -37,4 +37,5 @@ function Root() {
   );
 }
 
-createRoot(document.getElementById("root")!).render(<StrictMode><Root /></StrictMode>);
+// The language first (it comes from Rust), so the panel never flashes in another one.
+initLanguage().finally(() => createRoot(document.getElementById("root")!).render(<StrictMode><Root /></StrictMode>));
