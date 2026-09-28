@@ -1,0 +1,16 @@
+{
+  "name": "dev-deck",
+  "version": "0.1.0",
+  "description": "See and tidy up the dev processes on your machine: an MCP server over Dev Deck, and a skill that has Claude check for servers it left running.",
+  "author": { "name": "Sergio Galici", "url": "https://github.com/snoo88071" },
+  "homepage": "https://github.com/snoo88071/dev-deck",
+  "repository": "https://github.com/snoo88071/dev-deck",
+  "license": "MIT",
+  "keywords": ["processes", "dev-servers", "ports", "cleanup", "windows", "mcp"],
+  "mcpServers": {
+    "dev-deck": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/dist/server.mjs"]
+    }
+  }
+}

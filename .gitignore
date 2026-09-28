@@ -6,3 +6,4 @@ tools/shots/
 .claude/
 .remember/
 ui/dist/
+src-tauri/binaries/

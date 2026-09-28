@@ -1,0 +1,13 @@
+{
+  "name": "dev-deck",
+  "description": "Dev Deck for Claude Code",
+  "owner": { "name": "Sergio Galici", "url": "https://github.com/snoo88071" },
+  "plugins": [
+    {
+      "name": "dev-deck",
+      "source": "./",
+      "description": "See and tidy up the dev processes on your machine: an MCP server over Dev Deck, and a skill that has Claude check for servers it left running.",
+      "category": "development"
+    }
+  ]
+}

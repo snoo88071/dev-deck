@@ -4,7 +4,7 @@
  */
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -46,7 +46,12 @@ export function devdeckBin(): string {
     const p = resolve(HERE, "..", "..", "src-tauri", "target", profile, exe);
     if (existsSync(p)) return p;
   }
-  throw new Error("devdeck not found: build it with `cargo build --release --bin devdeck` in src-tauri, or set DEVDECK_BIN");
+  // The installed app ships it next to the panel as devdeck-cli.exe (per user, or per machine).
+  for (const base of [process.env.LOCALAPPDATA, process.env.ProgramFiles]) {
+    const p = base ? join(base, "Dev Deck", "devdeck-cli.exe") : "";
+    if (p && existsSync(p)) return p;
+  }
+  throw new Error("devdeck not found: install the Dev Deck app, or build it with `cargo build --release --bin devdeck` in src-tauri, or set DEVDECK_BIN");
 }
 
 function run(args: string[]): Promise<any> {

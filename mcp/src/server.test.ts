@@ -18,11 +18,12 @@ import * as devdeck from "./devdeck.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
-test("dev_processes and dev_cleanup: shadow mode, nothing closed, proposals in the file", async () => {
+// The source, and the bundle the Claude Code plugin runs (npm run bundle).
+for (const entry of ["src/server.ts", "dist/server.mjs"]) test(`${entry}: dev_processes and dev_cleanup, shadow mode, nothing closed, proposals in the file`, async () => {
   const shadow = join(mkdtempSync(join(tmpdir(), "shadow-")), "shadow.jsonl");
   const transport = new StdioClientTransport({
     command: process.execPath,
-    args: [resolve(HERE, "server.ts")],
+    args: [resolve(HERE, "..", entry)],
     cwd: process.env.DEVDECK_TEST_CWD ?? process.cwd(),
     env: { ...process.env, DEVDECK_SHADOW: shadow } as Record<string, string>,
   });

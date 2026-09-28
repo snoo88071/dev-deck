@@ -30,6 +30,6 @@ jobs:
         run: npm run ui:build
       - name: Panel in Playwright (demo), contrast in both themes
         run: npx playwright install chromium && npm run ui-check && npm run contrast
-      - name: MCP
-        run: npm run check && npm test
+      - name: MCP (and the plugin bundle is up to date)
+        run: npm run check && npm run bundle && git diff --exit-code -- dist && npm test
         working-directory: mcp

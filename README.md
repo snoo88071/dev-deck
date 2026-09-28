@@ -56,14 +56,26 @@ the tray menu.
 
 ## Use it from Claude Code
 
+Dev Deck is also a Claude Code plugin: an MCP server over the same data and actions, and a
+skill that has Claude check for servers it left running (at the end of a task, or when a
+port is busy) and offer to stop them. It never stops anything without your yes.
+
+```
+/plugin marketplace add snoo88071/dev-deck
+/plugin install dev-deck@dev-deck
+```
+
+It needs the Dev Deck app installed (it ships `devdeck-cli.exe`, which the MCP server calls)
+and Node.js 20+. Then, in a session: "did you leave anything running?". Tools:
+`dev_processes`, `dev_sessions`, `dev_cleanup`, `dev_verdict`, `dev_kill`, `dev_restart`.
+
+From a clone, without the plugin:
+
 ```
 cd src-tauri && cargo build --release --bin devdeck
 cd ../mcp && npm install
 claude mcp add -s user dev-deck -- node <path-to-repo>/mcp/src/server.ts
 ```
-
-Then, in a session: "clean up my dev processes". Tools: `dev_processes`, `dev_sessions`,
-`dev_cleanup`, `dev_verdict`, `dev_kill`, `dev_restart`.
 
 ## Session descriptions (opt-in)
 

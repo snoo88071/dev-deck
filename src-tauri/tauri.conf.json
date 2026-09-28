@@ -7,7 +7,7 @@
     "devUrl": "http://localhost:1420",
     "frontendDist": "../ui/dist",
     "beforeDevCommand": "npm run ui:dev",
-    "beforeBuildCommand": "npm run ui:build"
+    "beforeBuildCommand": "npm run ui:build && node tools/sidecar.mjs"
   },
   "app": {
     "windows": [
@@ -35,6 +35,9 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
+    ],
+    "externalBin": [
+      "binaries/devdeck-cli"
     ]
   }
 }

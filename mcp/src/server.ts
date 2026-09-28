@@ -14,16 +14,16 @@
  * by walking up from this process. The projects are the folder Claude Code
  * started it in, plus those the tool passes.
  */
-import { createRequire } from "node:module";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+// The panel's cleanup rules (plain CommonJS): a static import, so the plugin bundle carries them.
+import cleanupRules from "../../ui/cleanup.js";
 import * as devdeck from "./devdeck.ts";
 import type { Group, Proc } from "./devdeck.ts";
 import { append, recordProposals, recordVerdict, VERDICTS, type Verdict } from "./shadow.ts";
 
-const require = createRequire(import.meta.url);
-const cleanup = require("../../ui/cleanup.js") as {
+const cleanup = cleanupRules as unknown as {
   propose(groups: Group[], ctx: { session?: number | null; projects?: string[] }): Proposal[];
   isMcp(p: Proc): boolean;
   inProjects(path: string | null, projects: string[]): boolean;

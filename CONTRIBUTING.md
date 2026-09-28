@@ -53,7 +53,11 @@ process lands in the wrong project.
   Colors are antd tokens in `ui/src/palette.ts`; run `npm run contrast` after touching them.
 - **Strings** live in `ui/src/locales/<lang>.json`: add a key to `en.json` and to every other
   language (the test fails otherwise). Native-speaker fixes to es, fr and pt are very welcome.
-- **The MCP server** has no build step: TypeScript run directly by Node.
+- **The MCP server** runs as TypeScript directly by Node while you work on it. The Claude Code
+  plugin runs the bundle `mcp/dist/server.mjs` instead: after changing `mcp/src/` or
+  `ui/cleanup.js`, run `cd mcp && npm run bundle` and commit it (CI checks it is up to date).
+- **The plugin** is `.claude-plugin/` (manifest and marketplace) plus `skills/`. Try it without
+  installing: `claude --plugin-dir .`; check it with `claude plugin validate .`.
 - **Safety first on actions.** Anything that kills or restarts goes through Rust, which
   re-checks every pid. Cleanup never closes on its own.
 - **Short comments that explain why**, not what. Match the style of the file you're in.
