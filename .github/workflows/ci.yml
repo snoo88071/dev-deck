@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+      - run: npm ci
+        working-directory: mcp
+
+      - name: Rust
+        run: cargo test && cargo build --bin devdeck
+        working-directory: src-tauri
+      - name: Cleanup rules
+        run: node --test ui/cleanup.test.js
+      - name: Contrast
+        run: npm run contrast
+      - name: Panel (demo, Playwright)
+        run: npx playwright install chromium && npm run ui-check
+      - name: MCP
+        run: npm run check && npm test
+        working-directory: mcp

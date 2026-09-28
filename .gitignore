@@ -1,0 +1,7 @@
+node_modules/
+src-tauri/target/
+src-tauri/gen/
+mcp/node_modules/
+tools/shots/
+.claude/
+.remember/
