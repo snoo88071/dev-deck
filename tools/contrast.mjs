@@ -24,7 +24,7 @@ try {
     await page.waitForSelector(".ant-menu");
     for (const [i, name] of ["sessions", "processes", "cleanup"].entries()) {
       await page.locator(".ant-menu-item").nth(i).click();
-      await page.waitForTimeout(300);
+      await page.locator(".ant-table-row").first().waitFor();
       // Open what can be opened, so detail rows are measured too.
       for (const icon of await page.locator(".ant-table-row-expand-icon-collapsed").all()) await icon.click().catch(() => {});
       await page.mouse.move(1279, 899);

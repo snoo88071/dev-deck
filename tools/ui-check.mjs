@@ -18,6 +18,14 @@ const SHOTS = join(dirname(fileURLToPath(import.meta.url)), "shots");
 mkdirSync(SHOTS, { recursive: true });
 const ok = (what) => console.log("ok  " + what);
 
+/** Waits for a count instead of reading it once: the demo data arrives asynchronously, later on a slow runner. */
+async function expectCount(locator, n, what) {
+  const until = Date.now() + 10_000;
+  let got;
+  while ((got = await locator.count()) !== n && Date.now() < until) await new Promise((r) => setTimeout(r, 100));
+  assert.equal(got, n, `${what}: expected ${n}, got ${got}`);
+}
+
 const stop = await serve();
 const browser = await chromium.launch();
 const errors = [];
@@ -54,16 +62,14 @@ try {
 
   // Filter: "/" focuses it, words narrow the projects, Esc clears it.
   const projects = page.locator(".ant-table").first().locator("tr.ant-table-row-level-0");
-  assert.equal(await projects.count(), 3);
+  await expectCount(projects, 3, "projects after reload");
   await page.locator("body").click({ position: { x: 5, y: 700 } });
   await page.keyboard.press("/");
   assert.equal(await page.evaluate(() => document.activeElement?.id), "filter");
   await page.keyboard.type("blog");
-  await page.waitForTimeout(100);
-  assert.equal(await projects.count(), 1);
+  await expectCount(projects, 1, "projects matching \"blog\"");
   await page.keyboard.press("Escape");
-  await page.waitForTimeout(100);
-  assert.equal(await projects.count(), 3);
+  await expectCount(projects, 3, "projects after Esc");
   ok("\"/\" and the filter, Esc clears it");
 
   // Opening a project opens its whole tree, and it stays open across a refresh (every 3 s).
@@ -127,6 +133,7 @@ try {
       await p.waitForSelector(".ant-menu");
       for (const [i, name] of ["sessions", "processes", "cleanup"].entries()) {
         await p.locator(".ant-menu-item").nth(i).click();
+        await p.locator(".ant-table-row").first().waitFor();
         await p.mouse.move(width - 4, 716);
         await p.waitForTimeout(200);
         const scroll = await p.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
