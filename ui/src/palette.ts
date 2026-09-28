@@ -22,12 +22,13 @@ const shared = {
   fontFamilyCode: MONO,
 };
 
-export function themeConfig(dark: boolean): ThemeConfig {
+export function themeConfig(dark: boolean, reducedMotion = false): ThemeConfig {
   return dark
     ? {
         algorithm: theme.darkAlgorithm,
         token: {
           ...shared,
+          motion: !reducedMotion,
           colorSuccess: GREEN_ON_DARK,
           colorLink: GREEN_ON_DARK,
           colorPrimaryText: GREEN_ON_DARK,
@@ -50,6 +51,7 @@ export function themeConfig(dark: boolean): ThemeConfig {
         algorithm: theme.defaultAlgorithm,
         token: {
           ...shared,
+          motion: !reducedMotion,
           colorSuccess: GREEN,
           colorLink: GREEN,
           colorWarning: "#b45309",

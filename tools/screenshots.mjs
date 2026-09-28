@@ -14,7 +14,7 @@ const stop = await serve();
 const browser = await chromium.launch();
 try {
   for (const theme of ["light", "dark"]) {
-    const context = await browser.newContext({ viewport: { width: 1000, height: 600 }, colorScheme: theme, deviceScaleFactor: 2 });
+    const context = await browser.newContext({ viewport: { width: 1000, height: 600 }, colorScheme: theme, deviceScaleFactor: 2, reducedMotion: "reduce" });
     await context.addInitScript(() => localStorage.setItem("devdeck.lang", "en"));
     const page = await context.newPage();
     await page.goto(URL);

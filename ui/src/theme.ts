@@ -30,3 +30,16 @@ export function useThemeMode() {
   const dark = mode === "dark" || (mode === "system" && systemDark);
   return { mode, setMode, dark };
 }
+
+/** Windows "Animation effects" off: antd skips its animations (`motion` token). */
+export function useReducedMotion(): boolean {
+  const query = () => window.matchMedia("(prefers-reduced-motion: reduce)");
+  const [reduced, setReduced] = useState(() => query().matches);
+  useEffect(() => {
+    const mq = query();
+    const on = () => setReduced(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  return reduced;
+}

@@ -3,6 +3,6 @@
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
 }
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { transition: none !important; animation: none !important; }
-}
+/* Reduced motion is handled by antd's `motion` token (see palette.ts), not here:
+   forcing `animation: none` leaves antd waiting for an animationend that never comes,
+   and a closed dialog stays on top of the page. */

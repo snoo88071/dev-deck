@@ -22,7 +22,7 @@ const stop = await serve();
 const browser = await chromium.launch();
 const errors = [];
 try {
-  const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, colorScheme: "light" });
+  const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, colorScheme: "light", reducedMotion: "reduce" });
   // English, and a clean slate on the first load only (later reloads keep what the page stored).
   await context.addInitScript(() => {
     if (!sessionStorage.getItem("started")) {
@@ -115,7 +115,7 @@ try {
   ok("theme and language menus");
 
   // Every page at three widths, in both themes: no horizontal scrolling.
-  const wide = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+  const wide = await browser.newContext({ viewport: { width: 1280, height: 720 }, reducedMotion: "reduce" });
   await wide.addInitScript(() => localStorage.setItem("devdeck.lang", "en"));
   const p = await wide.newPage();
   p.on("pageerror", (e) => errors.push(e.message));
@@ -139,6 +139,10 @@ try {
 
   assert.deepEqual(errors, [], "console errors");
   ok("no console errors");
+} catch (e) {
+  // In GitHub Actions, an annotation: readable on the run page and through the API.
+  if (process.env.GITHUB_ACTIONS) console.log(`::error title=ui-check::${String(e.message ?? e).split(/\r?\n/).slice(0, 3).join(" ")}`);
+  throw e;
 } finally {
   await browser.close();
   stop();

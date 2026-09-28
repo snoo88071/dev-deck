@@ -13,7 +13,7 @@ import frFR from "antd/locale/fr_FR";
 import ptBR from "antd/locale/pt_BR";
 import { App } from "./App";
 import { DeckProvider } from "./store";
-import { useThemeMode } from "./theme";
+import { useReducedMotion, useThemeMode } from "./theme";
 import { themeConfig } from "./palette";
 
 const ANTD_LOCALES = { en: enUS, it: itIT, es: esES, fr: frFR, pt: ptBR } as const;
@@ -21,12 +21,13 @@ const ANTD_LOCALES = { en: enUS, it: itIT, es: esES, fr: frFR, pt: ptBR } as con
 function Root() {
   const { mode, setMode, dark } = useThemeMode();
   const { i18n } = useTranslation();
+  const reducedMotion = useReducedMotion();
   useEffect(() => {
     document.documentElement.style.colorScheme = dark ? "dark" : "light";
     document.documentElement.dataset.theme = dark ? "dark" : "light";
   }, [dark]);
   return (
-    <ConfigProvider theme={themeConfig(dark)} locale={ANTD_LOCALES[i18n.language as keyof typeof ANTD_LOCALES] ?? enUS}>
+    <ConfigProvider theme={themeConfig(dark, reducedMotion)} locale={ANTD_LOCALES[i18n.language as keyof typeof ANTD_LOCALES] ?? enUS}>
       <AntApp style={{ height: "100%" }}>
         <DeckProvider>
           <App themeMode={mode} setThemeMode={setMode} />

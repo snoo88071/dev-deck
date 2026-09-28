@@ -17,7 +17,7 @@ let checked = 0;
 
 try {
   for (const theme of ["light", "dark"]) {
-    const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, colorScheme: theme });
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, colorScheme: theme, reducedMotion: "reduce" });
     await context.addInitScript(() => localStorage.setItem("devdeck.lang", "en"));
     const page = await context.newPage();
     await page.goto(URL);
@@ -43,7 +43,10 @@ try {
 }
 
 if (failures.size) {
-  for (const [where, r] of failures) console.log(`FAIL ${r.ratio.toFixed(2)}:1 (needs ${r.need}) ${where}   ${r.fg} on ${r.bg}`);
+  for (const [where, r] of failures) {
+    const line = `${r.ratio.toFixed(2)}:1 (needs ${r.need}) ${where}   ${r.fg} on ${r.bg}`;
+    console.log(process.env.GITHUB_ACTIONS ? `::error title=contrast::${line}` : `FAIL ${line}`);
+  }
   process.exitCode = 1;
 } else {
   console.log(`All ${checked} text/background pairs pass (light and dark, three pages).`);
