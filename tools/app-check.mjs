@@ -82,6 +82,18 @@ try {
   const page = await until("the panel page", () => browser.contexts().flatMap((c) => c.pages()).find((p) => p.url().includes("tauri.localhost")));
   await page.waitForSelector(".ant-menu");
 
+  // The bundled app must look like the dev one: the production CSP once blocked
+  // antd's runtime styles (a nonce disables 'unsafe-inline'). Reload to see every message.
+  const errors = [];
+  page.on("console", (m) => { if (m.type() === "error") errors.push(m.text().slice(0, 200)); });
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.reload();
+  await page.waitForSelector(".ant-menu");
+  await page.waitForTimeout(1500);
+  assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector(".ant-menu")).listStyleType), "none", "antd styles are not applied");
+  assert.deepEqual(errors, [], "console errors in the real app");
+  ok("antd styles apply, no console errors (CSP)");
+
   // Rust decides the language and the description setting.
   assert.equal(await page.evaluate(() => document.documentElement.lang), "en");
   await page.getByRole("menuitem", { name: /^Sessions/ }).click();
