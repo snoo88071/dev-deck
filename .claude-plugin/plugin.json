@@ -1,6 +1,6 @@
 {
   "name": "dev-deck",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "See and tidy up the dev processes and scheduled tasks on your machine: an MCP server over Dev Deck, and skills that have Claude check for servers it left running and keep the scheduled tasks it creates findable.",
   "author": { "name": "Sergio Galici", "url": "https://github.com/snoo88071" },
   "homepage": "https://github.com/snoo88071/dev-deck",
