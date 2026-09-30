@@ -36,7 +36,7 @@ node --test ui/cleanup.test.js ui/locales.test.js   # cleanup rules; every langu
 npm run ui:build                            # types and bundle (needed by the next two)
 npm run ui-check                            # the demo panel in Playwright: pages, keyboard, filter, actions, themes
 npm run contrast                            # WCAG AA contrast of every text, light and dark
-npm run tauri build -- --no-bundle && npm run app-check   # the real app: restart, stop, Cleanup (local only)
+npm run tauri build -- --no-bundle && npm run app-check   # the real app: restart, stop, Cleanup, scheduled tasks (local only)
 cd mcp && npm run check && npm test         # MCP types, shadow file, and the server as Claude Code starts it
 ```
 

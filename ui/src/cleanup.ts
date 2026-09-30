@@ -5,7 +5,7 @@
  * `self.DevDeckCleanup`).
  */
 import * as mod from "../cleanup.js";
-import type { Group } from "./types";
+import type { Group, JobGroup } from "./types";
 
 export interface Proposal {
   id: string;
@@ -17,10 +17,14 @@ export interface Proposal {
   cmd: string;
   ports: number[];
   evidence: string[];
+  /** Task proposals: the task's path in the Task Scheduler, and its name. */
+  task?: string;
+  name?: string;
 }
 
 interface CleanupApi {
   propose(groups: Group[], ctx?: { session?: number | null; projects?: string[]; idleHours?: number }): Proposal[];
+  proposeTasks(jobs: JobGroup[], ctx?: { projects?: string[] }): Proposal[];
   isMcp(p: { tool: string | null; cmd: string }): boolean;
   inProjects(path: string | null, projects: string[]): boolean;
   CATEGORIES: string[];

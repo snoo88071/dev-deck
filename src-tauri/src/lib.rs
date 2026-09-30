@@ -5,6 +5,7 @@ pub mod procs;
 pub mod sessions;
 pub mod describe;
 pub mod locale;
+pub mod tasks;
 
 use std::sync::Mutex;
 use sysinfo::System;
@@ -24,7 +25,9 @@ fn list(state: State<Sys>) -> Vec<procs::Group> {
     let mut sys = sys(&state);
     let all = procs::snapshot(&mut sys);
     let own = procs::own_tree(&all);
-    procs::group(&all, &|p| p.exists(), &own)
+    let mut groups = procs::group(&all, &|p| p.exists(), &own);
+    procs::tag_tasks(&mut groups, &all, &tasks::watched_engines());
+    groups
 }
 
 #[tauri::command]
@@ -98,6 +101,30 @@ fn app_language() -> &'static str {
     locale::app_language()
 }
 
+/// The scheduled tasks that run something in a project, grouped by project.
+#[tauri::command(async)]
+fn jobs() -> Result<Vec<tasks::JobGroup>, String> {
+    tasks::jobs()
+}
+
+/// Run now, enable, disable a project task.
+#[tauri::command(async)]
+fn job_act(path: String, act: String) -> Result<(), String> {
+    let act = match act.as_str() {
+        "run" => tasks::Act::Run,
+        "enable" => tasks::Act::Enable,
+        "disable" => tasks::Act::Disable,
+        other => return Err(format!("unknown task action: {other}")),
+    };
+    tasks::act(&path, act)
+}
+
+/// Deletes a project task, keeping a copy of its definition; returns where.
+#[tauri::command(async)]
+fn job_delete(path: String) -> Result<String, String> {
+    tasks::delete(&path)
+}
+
 #[tauri::command]
 fn set_describe(on: bool) -> Result<(), String> {
     describe::set_enabled(on)
@@ -143,9 +170,10 @@ fn toggle(app: &AppHandle) {
 pub fn run() {
     tauri::Builder::default()
         .manage(Sys(Mutex::new(System::new())))
-        .invoke_handler(tauri::generate_handler![list, kill, restart, open_port, open_folder, shadow_read, shadow_append, sessions, describe_session, describe_settings, set_describe, app_language])
+        .invoke_handler(tauri::generate_handler![list, kill, restart, open_port, open_folder, shadow_read, shadow_append, sessions, describe_session, describe_settings, set_describe, app_language, jobs, job_act, job_delete])
         .setup(|app| {
             auto_describe();
+            tasks::watch_engines();
             let show = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &quit])?;

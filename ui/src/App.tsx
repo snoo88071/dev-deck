@@ -1,12 +1,12 @@
 /**
- * The shell: a sidebar with the three pages (it folds to icons in a narrow
+ * The shell: a sidebar with the four pages (it folds to icons in a narrow
  * window), a page header with the summary and the filter, and the page.
  */
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Badge, Button, Dropdown, Flex, Input, Layout, Menu, Tooltip, Typography, theme, type InputRef } from "antd";
 import {
-  AppstoreOutlined, ClearOutlined, DesktopOutlined, MenuFoldOutlined, MenuUnfoldOutlined,
+  AppstoreOutlined, ClearOutlined, DesktopOutlined, FieldTimeOutlined, MenuFoldOutlined, MenuUnfoldOutlined,
   MoonOutlined, RobotOutlined, SearchOutlined, SunOutlined,
 } from "@ant-design/icons";
 import { DEMO } from "./api";
@@ -17,9 +17,11 @@ import type { ThemeMode } from "./theme";
 import { SessionsPage } from "./pages/Sessions";
 import { ProcessesPage } from "./pages/Processes";
 import { CleanupPage } from "./pages/Cleanup";
+import { JobsPage } from "./pages/Jobs";
+import { broken } from "./format";
 
-type Page = "sessions" | "processes" | "cleanup";
-const PAGES: Page[] = ["sessions", "processes", "cleanup"];
+type Page = "sessions" | "processes" | "jobs" | "cleanup";
+const PAGES: Page[] = ["sessions", "processes", "jobs", "cleanup"];
 const PAGE_KEY = "devdeck.page";
 const SIDER_KEY = "devdeck.sider";
 /** Below this window width the sidebar starts folded to icons. */
@@ -91,6 +93,8 @@ export function App({ themeMode, setThemeMode }: { themeMode: ThemeMode; setThem
   const mine = deck.groups.filter((g) => !g.by_claude);
   const nProcs = deck.groups.reduce((s, g) => s + g.procs.length, 0);
   const memory = deck.groups.reduce((s, g) => s + g.memory, 0);
+  const allJobs = deck.jobs.flatMap((g) => g.jobs);
+  const nBroken = allJobs.filter(broken).length;
   const recent = deck.sessions.filter((x) => x.session.last_activity && Date.now() / 1000 - x.session.last_activity < 3600).length;
 
   const count = (n: number, attention?: boolean) => (
@@ -103,6 +107,7 @@ export function App({ themeMode, setThemeMode }: { themeMode: ThemeMode; setThem
   const items = [
     { key: "sessions", icon: <RobotOutlined aria-hidden />, label: label(t("nav.sessions"), deck.sessions.length) },
     { key: "processes", icon: <AppstoreOutlined aria-hidden />, label: label(t("nav.processes"), mine.length) },
+    { key: "jobs", icon: <FieldTimeOutlined aria-hidden />, label: label(t("nav.jobs"), allJobs.length) },
     {
       key: "cleanup",
       icon: <Badge dot={folded && deck.pending.length > 0} offset={[2, 2]}><ClearOutlined aria-hidden style={{ color: "inherit" }} /></Badge>,
@@ -117,6 +122,12 @@ export function App({ themeMode, setThemeMode }: { themeMode: ThemeMode; setThem
       `${t("count.project", { count: mine.length })} · ${t("count.process", { count: nProcs })} · ${mb(memory)}`,
       t("header.filterProcesses"),
     ],
+    jobs: [
+      t("nav.jobs"),
+      `${t("count.task", { count: allJobs.length })} · ${t("count.project", { count: deck.jobs.length })}`
+        + (nBroken ? ` · ${t("header.jobsBroken", { count: nBroken })}` : ""),
+      t("header.filterJobs"),
+    ],
     cleanup: [
       t("nav.cleanup"),
       deck.pending.length ? t("header.cleanupPending", { count: deck.pending.length }) : t("header.cleanupNone"),
@@ -128,7 +139,9 @@ export function App({ themeMode, setThemeMode }: { themeMode: ThemeMode; setThem
 
   let body: ReactNode;
   if (page === "sessions") body = <SessionsPage narrow={narrow} />;
-  else if (page === "processes") body = <ProcessesPage narrow={narrow} />;
+  // A project's "N scheduled" opens the Scheduled page filtered on that project.
+  else if (page === "processes") body = <ProcessesPage narrow={narrow} showJobs={(root) => { setPage("jobs"); onFilter(root); }} />;
+  else if (page === "jobs") body = <JobsPage narrow={narrow} />;
   else body = <CleanupPage narrow={narrow} />;
 
   return (

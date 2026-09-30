@@ -1,11 +1,13 @@
 /**
  * The real app, not the demo: launches the built dev-deck.exe with WebView2's
  * remote debugging on, drives it with Playwright, and checks what only Rust can
- * do: restart and stop real processes, and write verdicts to the shadow file.
+ * do: restart and stop real processes, write verdicts to the shadow file, and run,
+ * disable, enable and delete a real scheduled task.
  *
  * It only touches what it starts itself: two tiny node servers in a temp folder,
- * and a temp shadow file (DEVDECK_SHADOW). The app window shows for a few seconds,
- * and so does the `cmd` window a restart opens. Windows only, needs a desktop:
+ * a temp shadow file (DEVDECK_SHADOW), and two scheduled tasks under \Dev Deck\
+ * (the deleted one leaves its copy in a temp folder, DEVDECK_DELETED_TASKS). The app window
+ * shows for a few seconds, and so does the `cmd` window a restart opens. Windows only, needs a desktop:
  * not part of CI.
  *
  *   npm run tauri build -- --no-bundle && npm run app-check
@@ -13,7 +15,7 @@
 import { chromium } from "playwright";
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
@@ -38,12 +40,19 @@ async function until(what, fn, ms = 20_000) {
 const freePort = () => new Promise((r) => { const s = net.createServer().listen(0, () => { const p = s.address().port; s.close(() => r(p)); }); });
 const listening = (port) => new Promise((r) => { const c = net.connect(port, "127.0.0.1", () => { c.destroy(); r(true); }).on("error", () => r(false)); });
 const procs = () => JSON.parse(execFileSync(CLI, ["list"], { encoding: "utf8" })).groups.flatMap((g) => g.procs);
+const jobs = () => JSON.parse(execFileSync(CLI, ["jobs"], { encoding: "utf8" })).groups.flatMap((g) => g.jobs);
+const ps = (script) => execFileSync("powershell", ["-NoProfile", "-NonInteractive", "-Command", script], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 
 for (const f of [APP, CLI]) if (!existsSync(f)) throw new Error(`${f} is missing: run \`npm run tauri build -- --no-bundle\` first`);
 
 const tmp = mkdtempSync(join(tmpdir(), "devdeck-check-"));
 const project = join(tmp, "devdeck-check-app");
 const shadowFile = join(tmp, "shadow.jsonl");
+const deletedDir = join(tmp, "deleted-tasks");
+const TASK = `devdeck-check-${process.pid}`;
+const GONE = `devdeck-check-gone-${process.pid}`;
+let taskCreated = false;
+let goneCreated = false;
 const children = [];
 let app;
 let browser;
@@ -74,6 +83,7 @@ try {
       // Its own WebView2 data: no clash with a Dev Deck already open, and your stored settings stay untouched.
       WEBVIEW2_USER_DATA_FOLDER: join(tmp, "webview"),
       DEVDECK_SHADOW: shadowFile,
+      DEVDECK_DELETED_TASKS: deletedDir,
       DEVDECK_LANG: "en",
       DEVDECK_DESCRIBE: "0",
     },
@@ -137,7 +147,85 @@ try {
   assert.ok(records.some((r) => r.type === "action" && r.action === "kill" && r.ok && r.pids[0] === b.pid && r.proposal === "appcheck"));
   assert.ok(records.some((r) => r.type === "verdict" && r.proposal === "appcheck" && r.verdict === "close"));
   ok("\"Close\" in Cleanup kills the process and records the action and the verdict");
+
+  // Scheduled: a task of its own, in the project, under \Dev Deck\ (the folder the skill asks Claude to use).
+  // Run now, disable, enable and delete act on the real Task Scheduler.
+  // It stays up for a minute, long enough for Processes to show whose it is.
+  writeFileSync(join(project, "job.js"), 'require("fs").writeFileSync(require("path").join(__dirname, "ran.txt"), new Date().toISOString()); setTimeout(() => {}, 60000);\n');
+  ps(`Register-ScheduledTask -TaskPath '\\Dev Deck\\' -TaskName '${TASK}' -Force `
+    + `-Action (New-ScheduledTaskAction -Execute '${process.execPath}' -Argument 'job.js' -WorkingDirectory '${project}') `
+    + `-Trigger (New-ScheduledTaskTrigger -Daily -At 3am) | Out-Null`);
+  taskCreated = true;
+  await page.getByRole("menuitem", { name: /^Scheduled/ }).click();
+  const task = page.locator("tr.ant-table-row-level-1", { hasText: TASK });
+  await task.waitFor({ timeout: 15_000 });
+  await task.getByText(/^every day at 03:00/).waitFor();
+  ok("a real scheduled task shows up under its project, with its schedule");
+
+  await task.getByRole("button", { name: "Run now" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Run now" }).click();
+  await until("the task ran (job.js wrote ran.txt)", () => existsSync(join(project, "ran.txt")));
+  ok("\"Run now\" starts it");
+
+  // Its process, in Processes, says which task started it; the project links to its tasks.
+  const jobProc = await until("devdeck ties job.js to the task", () => procs().find((p) => p.cmd.includes("job.js") && p.task === TASK));
+  await page.getByRole("menuitem", { name: /^Processes/ }).click();
+  await group.waitFor();
+  await until("the panel tags the process with the task", async () => {
+    if (!(await page.locator("tr", { hasText: "job.js" }).count())) await group.locator(".ant-table-row-expand-icon").click().catch(() => {});
+    return (await page.locator("tr", { hasText: "job.js" }).getByText(TASK).count()) > 0;
+  });
+  await group.getByRole("button", { name: "1 scheduled" }).click();
+  await task.waitFor();
+  ok(`the task's process (pid ${jobProc.pid}) is tagged in Processes; "1 scheduled" leads back`);
+
+  const enabled = () => jobs().find((j) => j.name === TASK)?.enabled;
+  await task.getByRole("button", { name: "Disable" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Disable" }).click();
+  await until("the task is disabled", () => enabled() === false);
+  await task.getByRole("button", { name: "Enable" }).click();
+  await until("the task is enabled again", () => enabled() === true);
+  ok("disable and enable change it in the Task Scheduler");
+
+  await task.getByRole("button", { name: "Delete" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
+  await until("the task is gone", () => !jobs().some((j) => j.name === TASK));
+  const copies = await until("a copy of its definition was kept", () => {
+    try { return readdirSync(deletedDir).filter((f) => f.endsWith(".xml")); } catch { return null; }
+  });
+  const xml = readFileSync(join(deletedDir, copies[0]), "utf16le");
+  assert.ok(xml.includes("job.js"), "the copy holds the task's definition");
+  taskCreated = false;
+  ok("delete removes it and keeps its definition (UTF-16 XML, as schtasks wants it)");
+
+  // Cleanup: a task whose folder doesn't exist is proposed by "Scan now"; "Disable" disables it.
+  ps(`Register-ScheduledTask -TaskPath '\\Dev Deck\\' -TaskName '${GONE}' -Force `
+    + `-Action (New-ScheduledTaskAction -Execute '${process.execPath}' -Argument 'job.js' -WorkingDirectory '${join(tmp, "gone")}') `
+    + `-Trigger (New-ScheduledTaskTrigger -Daily -At 4am) | Out-Null`);
+  goneCreated = true;
+  await until("devdeck sees the task with its missing folder", () => jobs().find((j) => j.name === GONE && j.missing));
+  // "1 scheduled" left the filter on the test project: the proposal is elsewhere.
+  await page.locator("#filter").fill("");
+  await page.getByRole("menuitem", { name: /^Cleanup/ }).click();
+  await page.getByRole("button", { name: "Scan now" }).click();
+  const goneRow = page.locator("tr", { hasText: GONE });
+  await goneRow.getByText("Task pointing to a missing path").waitFor({ timeout: 15_000 });
+  await goneRow.getByRole("button", { name: "Disable" }).click();
+  await until("the task is disabled", () => jobs().find((j) => j.name === GONE)?.enabled === false);
+  const rec = await until("the disable and the verdict are in the shadow file", () => {
+    // The panel may be halfway through a line: skip what doesn't parse yet.
+    const r = readFileSync(shadowFile, "utf8").trim().split("\n").flatMap((l) => { try { return [JSON.parse(l)]; } catch { return []; } });
+    const p = r.find((x) => x.type === "proposal" && x.task?.endsWith(GONE));
+    return p && r.some((x) => x.type === "verdict" && x.proposal === p.id) ? { p, r } : null;
+  });
+  assert.ok(rec.r.some((x) => x.type === "action" && x.action === "disable" && x.ok && x.proposal === rec.p.id));
+  assert.equal(rec.p.category, "task-gone");
+  ok("a task pointing to a missing folder is proposed; \"Disable\" disables it and records the verdict");
 } finally {
+  if (taskCreated) try { ps(`Unregister-ScheduledTask -TaskPath '\\Dev Deck\\' -TaskName '${TASK}' -Confirm:$false`); } catch { /* already gone */ }
+  if (goneCreated) try { ps(`Unregister-ScheduledTask -TaskPath '\\Dev Deck\\' -TaskName '${GONE}' -Confirm:$false`); } catch { /* already gone */ }
+  // The \Dev Deck\ folder goes too if the check left it empty (DeleteFolder refuses a folder with tasks).
+  try { ps("$s = New-Object -ComObject Schedule.Service; $s.Connect(); $s.GetFolder('\\').DeleteFolder('Dev Deck', 0)"); } catch { /* not empty, or not there */ }
   await browser?.close().catch(() => {});
   if (app?.pid) try { execFileSync("taskkill", ["/T", "/F", "/PID", String(app.pid)], { stdio: "ignore" }); } catch { /* already gone */ }
   for (const c of children) try { c.kill(); } catch { /* already gone */ }

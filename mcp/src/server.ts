@@ -7,6 +7,7 @@
  *                  writes them to the shadow file for you to judge (panel or here)
  *   dev_verdict    the user's verdict on a proposal, to record
  *   dev_sessions   the open Claude Code sessions and what they're working on (read only)
+ *   dev_jobs       the Windows scheduled tasks that run something in a project (read only)
  *   dev_kill       kills processes, with a reason (also in the shadow file)
  *   dev_restart    restarts a process with its command, folder and environment, with a reason
  *
@@ -20,11 +21,12 @@ import { z } from "zod";
 // The panel's cleanup rules (plain CommonJS): a static import, so the plugin bundle carries them.
 import cleanupRules from "../../ui/cleanup.js";
 import * as devdeck from "./devdeck.ts";
-import type { Group, Proc } from "./devdeck.ts";
+import type { Group, Job, JobGroup, Proc, Trigger } from "./devdeck.ts";
 import { append, recordProposals, recordVerdict, VERDICTS, type Verdict } from "./shadow.ts";
 
 const cleanup = cleanupRules as unknown as {
   propose(groups: Group[], ctx: { session?: number | null; projects?: string[] }): Proposal[];
+  proposeTasks(jobs: JobGroup[], ctx: { projects?: string[] }): Proposal[];
   isMcp(p: Proc): boolean;
   inProjects(path: string | null, projects: string[]): boolean;
   LABELS: Record<string, string>;
@@ -40,6 +42,9 @@ interface Proposal {
   cmd: string;
   ports: number[];
   evidence: string[];
+  /** Task proposals: the task's path, and its name. */
+  task?: string;
+  name?: string;
 }
 
 /** This session's Claude Code: the claude_pid of this process in the list. */
@@ -62,8 +67,49 @@ function age(sec: number) {
 function procLine(p: Proc) {
   const who = [p.runtime, p.tool].filter(Boolean).join("/");
   const ports = p.ports.length ? ` :${p.ports.join(" :")}` : "";
-  const tag = p.claude ? " [Claude Code]" : p.launcher === "claude" ? " [from Claude Code]" : "";
+  const tag = (p.claude ? " [Claude Code]" : p.launcher === "claude" ? " [from Claude Code]" : "") + (p.task ? ` [scheduled task "${p.task}"]` : "");
   return `${"  ".repeat(p.depth)}- pid ${p.pid} ${who}${ports} · ${mb(p.memory)} · up ${age(p.run_time)}${tag}\n${"  ".repeat(p.depth)}  ${p.cmd.slice(0, 160)}`;
+}
+
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const stamp = (iso: string) => iso.replace("T", " ").slice(0, 16);
+
+/** A trigger in words: "every day at 07:00", "Tue, Fri at 09:00, then every 2 h". */
+function triggerText(t: Trigger): string {
+  const time = t.start ? t.start.slice(11, 16) : "";
+  let s: string;
+  if (t.kind === "daily") s = t.every > 1 ? `every ${t.every} days at ${time}` : `every day at ${time}`;
+  else if (t.kind === "weekly") s = `${t.every > 1 ? `every ${t.every} weeks, ` : ""}${[...t.days].sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7)).map((d) => DAYS[d]).join(", ")} at ${time}`;
+  else if (t.kind === "once") s = `once, ${t.start ? stamp(t.start) : "?"}`;
+  else s = ({ monthly: "monthly", logon: "at sign-in", boot: "at startup", idle: "when the PC is idle", event: "on a system event" } as Record<string, string>)[t.kind] ?? "on another trigger";
+  if (t.repeat_minutes) s += `, then every ${t.repeat_minutes % 60 ? `${t.repeat_minutes} min` : `${t.repeat_minutes / 60} h`}`;
+  return t.enabled ? s : `${s} (trigger off)`;
+}
+
+/** The last run's outcome in words. */
+function outcomeText(j: Job): string {
+  if (j.running || j.result === "running") return "running now";
+  if (!j.last_run || j.result === "not-run") return "never ran";
+  const code = `0x${(j.last_result >>> 0).toString(16).toUpperCase()}`;
+  const words: Record<string, string> = {
+    ok: "succeeded", exit: `ended with exit code ${j.last_result}`, terminated: "stopped before the end",
+    "folder-missing": `failed: the folder doesn't exist (${code})`, "file-missing": `failed: file not found (${code})`,
+    "path-missing": `failed: path not found (${code})`, denied: `failed: access denied (${code})`, refused: `refused by Windows (${code})`,
+  };
+  return `${stamp(j.last_run)}, ${words[j.result] ?? `failed (${code})`}`;
+}
+
+function jobLines(j: Job): string {
+  const when = j.triggers.length ? j.triggers.map(triggerText).join("; ") : "only when started by hand";
+  const next = !j.enabled ? "DISABLED" : j.next_run ? `next: ${stamp(j.next_run)}` : "no next run";
+  return [
+    `- "${j.name}" (${j.path}) · ${j.runtime} · ${when} · ${next}`,
+    `  runs: ${j.cmd.slice(0, 200)}`,
+    j.workdir ? `  in: ${j.workdir}` : null,
+    `  last run: ${outcomeText(j)}`,
+    j.missing ? `  MISSING: ${j.missing} no longer exists, so every run fails` : null,
+    j.description ? `  about: ${j.description.slice(0, 200)}` : null,
+  ].filter(Boolean).join("\n");
 }
 
 function text(t: string) {
@@ -141,11 +187,33 @@ server.registerTool(
 );
 
 server.registerTool(
+  "dev_jobs",
+  {
+    title: "Scheduled tasks",
+    description:
+      "Lists the Windows scheduled tasks (Task Scheduler) that run something in a project: scripts that run on a schedule (every day at 7, every 48 hours...), grouped by project, with what they run, when, the last run and its outcome, the next run, and whether their folder or script is gone. By default only this session's projects; with scope 'all', every project on the machine. Check it BEFORE creating a scheduled task (to update one that exists instead of adding a duplicate) and when the user asks what runs on a schedule. Read only: running, disabling or deleting a task is done by the user in the Dev Deck panel (Scheduled page).",
+    inputSchema: {
+      scope: z.enum(["session", "all"]).default("session").describe("session: this session's projects; all: every project on the machine"),
+      projects: z.array(z.string()).optional().describe("other project folders this session is working on"),
+    },
+  },
+  async ({ scope, projects }) => {
+    const dirs = projectsOf(projects);
+    const groups = (await devdeck.jobs()).filter((g) => scope === "all" || cleanup.inProjects(g.root, dirs));
+    const where = scope === "all" ? "on this machine" : `in ${dirs.join(", ")}`;
+    if (!groups.length) return text(`No scheduled task runs anything ${where}.`);
+    const n = groups.reduce((s, g) => s + g.jobs.length, 0);
+    const blocks = groups.map((g) => `## ${g.name}\n${g.root}\n${g.jobs.map(jobLines).join("\n")}`);
+    return text(`${n} scheduled task${n === 1 ? "" : "s"} ${where}:\n\n${blocks.join("\n\n")}`);
+  },
+);
+
+server.registerTool(
   "dev_cleanup",
   {
     title: "Cleanup (shadow mode)",
     description:
-      "Proposes which development processes to close, by category (orphan-mcp, duplicate, session, idle) and with the evidence for each, within the scope of this session and its projects. It runs IN SHADOW MODE: it closes nothing. The proposals are recorded in the shadow file to measure where Claude could later act on its own. Show the proposals to the user and ask what to do; if they decide, record their verdict with dev_verdict and close with dev_kill only what they said to close.",
+      "Proposes which development processes to close, by category (orphan-mcp, duplicate, session, idle) and with the evidence for each, within the scope of this session and its projects; and which scheduled tasks of those projects look broken (task-gone: their folder or script no longer exists; task-failing: their last run failed). It runs IN SHADOW MODE: it closes nothing. The proposals are recorded in the shadow file to measure where Claude could later act on its own. Show the proposals to the user and ask what to do; if they decide, record their verdict with dev_verdict and close with dev_kill only what they said to close.",
     inputSchema: {
       projects: z.array(z.string()).optional().describe("other project folders this session is working on"),
     },
@@ -154,7 +222,9 @@ server.registerTool(
     const groups = await devdeck.list();
     const session = sessionOf(groups);
     const dirs = projectsOf(projects);
-    const proposals = cleanup.propose(groups, { session, projects: dirs });
+    // The Task Scheduler may be unreadable (another OS, a policy): the processes still count.
+    const jobGroups = await devdeck.jobs().catch(() => [] as JobGroup[]);
+    const proposals = [...cleanup.propose(groups, { session, projects: dirs }), ...cleanup.proposeTasks(jobGroups, { projects: dirs })];
     const recorded = recordProposals(
       proposals.map((p) => ({
         source: "claude" as const,
@@ -167,15 +237,19 @@ server.registerTool(
         root: p.root,
         ports: p.ports,
         evidence: p.evidence,
+        ...(p.task ? { task: p.task } : {}),
       })),
     );
     if (!recorded.length) return text(`Nothing to clean up in scope (session ${session ?? "?"}, projects: ${dirs.join(", ")}).`);
-    const lines = recorded.map(
-      (r) =>
-        `- [${r.id}] ${cleanup.LABELS[r.category] ?? r.category} · pid ${r.pid}${r.pids.length > 1 ? ` (+${r.pids.length - 1} children)` : ""} · ${r.root ?? "?"}\n  ${r.cmd.slice(0, 160)}\n  evidence: ${r.evidence.join("; ")}`,
-    );
+    const lines = recorded.map((r) => {
+      const what = r.task ? `scheduled task "${r.task.split("\\").pop()}" (${r.task})` : `pid ${r.pid}${r.pids.length > 1 ? ` (+${r.pids.length - 1} children)` : ""}`;
+      return `- [${r.id}] ${cleanup.LABELS[r.category] ?? r.category} · ${what} · ${r.root ?? "?"}\n  ${r.cmd.slice(0, 160)}\n  evidence: ${r.evidence.join("; ")}`;
+    });
+    const tasks = recorded.some((r) => r.task)
+      ? " For a scheduled task, closing means disabling it: the user does that in the Dev Deck panel (Cleanup or Scheduled page); dev_kill doesn't apply."
+      : "";
     return text(
-      `SHADOW MODE: nothing was closed. ${recorded.length} proposals, recorded for the user's verdict:\n\n${lines.join("\n")}\n\nAsk the user, for each one: close / right but keep / wrong. Then call dev_verdict with the id in brackets, and dev_kill only for the ones to close.`,
+      `SHADOW MODE: nothing was closed. ${recorded.length} proposals, recorded for the user's verdict:\n\n${lines.join("\n")}\n\nAsk the user, for each one: close / right but keep / wrong. Then call dev_verdict with the id in brackets, and dev_kill only for the processes to close.${tasks}`,
     );
   },
 );

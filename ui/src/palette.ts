@@ -45,6 +45,9 @@ export function themeConfig(dark: boolean, reducedMotion = false): ThemeConfig {
         },
         components: {
           Menu: { itemSelectedColor: GREEN_ON_DARK },
+          // Red tags write in colorError, which the danger buttons need dark (white on it):
+          // on the tag's dark red ground it read 2.8:1, so tags get a lighter red of their own.
+          Tag: { colorError: "#ff8a8c" },
         },
       }
     : {

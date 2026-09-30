@@ -21,7 +21,7 @@ try {
     const page = await context.newPage();
     await page.goto(URL);
     await page.waitForSelector(".ant-menu");
-    for (const [i, name] of ["sessions", "processes", "cleanup"].entries()) {
+    for (const [i, name] of ["sessions", "processes", "jobs", "cleanup"].entries()) {
       await page.locator(".ant-menu-item").nth(i).click();
       await page.locator(".ant-table-row").first().waitFor();
       // Open what can be opened, so detail rows are measured too.
@@ -48,7 +48,7 @@ if (failures.size) {
   }
   process.exitCode = 1;
 } else {
-  console.log(`All ${checked} text/background pairs pass (light and dark, three pages).`);
+  console.log(`All ${checked} text/background pairs pass (light and dark, four pages).`);
 }
 
 /** Runs in the page: every text node, its color and the background behind it. */

@@ -1,12 +1,12 @@
 /**
  * Cleanup, in shadow mode: proposals (from Claude Code or from "Scan now") wait
  * for your verdict in ~/.dev-deck/shadow.jsonl. Nothing closes by itself; "Close"
- * is you closing it.
+ * is you closing it. A scheduled task's proposal is closed by disabling the task.
  */
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, App, Button, Empty, Flex, Input, Table, Tag, Typography, theme, type TableColumnsType } from "antd";
-import { CheckOutlined, PoweroffOutlined, ScanOutlined, StopOutlined } from "@ant-design/icons";
+import { CheckOutlined, PauseCircleOutlined, PoweroffOutlined, ScanOutlined, StopOutlined } from "@ant-design/icons";
 import { api } from "../api";
 import { cleanup } from "../cleanup";
 import { Mono } from "../components/bits";
@@ -14,7 +14,7 @@ import { agoIso, matches } from "../format";
 import { useDeck } from "../store";
 import type { ProposalRecord, Verdict } from "../types";
 
-const COLORS: Record<string, string> = { "orphan-mcp": "purple", duplicate: "warning", session: "blue", idle: "default" };
+const COLORS: Record<string, string> = { "orphan-mcp": "purple", duplicate: "warning", session: "blue", idle: "default", "task-gone": "error", "task-failing": "volcano" };
 
 const newId = () => crypto.randomUUID().slice(0, 8);
 const nowIso = () => new Date().toISOString();
@@ -30,14 +30,23 @@ export function CleanupPage({ narrow }: { narrow: boolean }) {
   const [busy, setBusy] = useState<string[]>([]);
   const [folded, setFolded] = useState<string[]>([]);
 
-  /** The proposal's process is still the same one: same pid, same command. */
-  const alive = (r: ProposalRecord) => deck.groups.some((g) => g.procs.some((p) => p.pid === r.pid && p.cmd === r.cmd));
+  /** The proposal's process is still the same one (same pid, same command); a task's is still there and enabled. */
+  const alive = (r: ProposalRecord) =>
+    r.task
+      ? deck.jobs.some((g) => g.jobs.some((j) => j.path === r.task && j.enabled))
+      : deck.groups.some((g) => g.procs.some((p) => p.pid === r.pid && p.cmd === r.cmd));
 
   const judge = async (r: ProposalRecord, verdict: Verdict, kill: boolean) => {
     setBusy((b) => [...b, r.id]);
     const note = notes[r.id]?.trim() || undefined;
     try {
-      if (kill && alive(r)) {
+      if (kill && alive(r) && r.task) {
+        let ok = true;
+        let error: string | undefined;
+        try { await api.jobAct(r.task, "disable"); } catch (e) { ok = false; error = String(e); }
+        await api.shadowAppend({ type: "action", at: nowIso(), source: "panel", action: "disable", pids: [], task: r.task, reason: `cleanup: ${r.category}`, proposal: r.id, ok, error });
+        if (!ok) message.error(t("jobs.failed", { error }));
+      } else if (kill && alive(r)) {
         let ok = true;
         let error: string | undefined;
         try { await api.kill([r.pid]); } catch (e) { ok = false; error = String(e); }
@@ -50,7 +59,7 @@ export function CleanupPage({ narrow }: { narrow: boolean }) {
     }
     setBusy((b) => b.filter((x) => x !== r.id));
     await deck.loadShadow();
-    await deck.refresh();
+    await (r.task ? deck.loadJobs() : deck.refresh());
   };
 
   /** From the panel: the whole machine, no session. Identical proposals, or ones already dismissed, are not repeated. */
@@ -59,20 +68,26 @@ export function CleanupPage({ narrow }: { narrow: boolean }) {
     try {
       await deck.refresh();
       const groups = await api.list();
+      const jobs = await api.jobs();
       const shadow = await api.shadowRead();
       const verdicts = new Map(shadow.flatMap((r) => (r.type === "verdict" ? [[r.proposal, r.verdict] as const] : [])));
       const known = shadow.filter((r): r is ProposalRecord => r.type === "proposal" && (!verdicts.has(r.id) || verdicts.get(r.id) !== "close"));
-      const found = cleanup.propose(groups, {});
+      const found = [...cleanup.propose(groups, {}), ...cleanup.proposeTasks(jobs, {})];
+      // The same process (pid and command), or the same task in the same category, is not proposed twice.
+      const same = (o: ProposalRecord, p: (typeof found)[number]) =>
+        o.category === p.category && (p.task ? o.task === p.task : o.pid === p.pid && o.cmd === p.cmd);
       let added = 0;
       for (const p of found) {
-        if (known.some((o) => o.category === p.category && o.pid === p.pid && o.cmd === p.cmd)) continue;
+        if (known.some((o) => same(o, p))) continue;
         await api.shadowAppend({
           type: "proposal", id: newId(), at: nowIso(), source: "panel", session: null, projects: [],
           category: p.category, pid: p.pid, pids: p.pids, cmd: p.cmd, root: p.root, ports: p.ports, evidence: p.evidence,
+          ...(p.task ? { task: p.task } : {}),
         });
         added++;
       }
       await deck.loadShadow();
+      await deck.loadJobs();
       if (!found.length) message.info(t("cleanup.scanNothing"));
       else if (!added) message.info(t("cleanup.scanNoNew"));
       else message.success(t("count.newProposal", { count: added }));
@@ -88,7 +103,7 @@ export function CleanupPage({ narrow }: { narrow: boolean }) {
 
   const order = (c: string) => { const i = cleanup.CATEGORIES.indexOf(c); return i < 0 ? 99 : i; };
   const rows = deck.pending
-    .filter((r) => matches(deck.filter, [r.cmd, r.root, r.category, label(r.category), r.pid]))
+    .filter((r) => matches(deck.filter, [r.cmd, r.root, r.category, label(r.category), r.pid, r.task]))
     .sort((a, b) => order(a.category) - order(b.category));
 
   const columns: TableColumnsType<ProposalRecord> = [
@@ -101,7 +116,9 @@ export function CleanupPage({ narrow }: { narrow: boolean }) {
             <Flex gap={8} align="center" wrap>
               <Tag color={COLORS[r.category] ?? "default"} style={{ marginInlineEnd: 0 }}>{label(r.category)}</Tag>
               <Typography.Text strong>{r.root ? r.root.split(/[\\/]/).pop() : "?"}</Typography.Text>
-              <Mono type="secondary">pid {r.pid}{r.pids.length > 1 ? ` +${r.pids.length - 1}` : ""}</Mono>
+              {r.task
+                ? <Typography.Text type="secondary">{r.task.split("\\").pop()}</Typography.Text>
+                : <Mono type="secondary">pid {r.pid}{r.pids.length > 1 ? ` +${r.pids.length - 1}` : ""}</Mono>}
               {alive(r) ? null : <Tag style={{ marginInlineEnd: 0 }}>{t("cleanup.gone")}</Tag>}
             </Flex>
             <Mono type="secondary" ellipsis>{r.cmd}</Mono>
@@ -126,7 +143,11 @@ export function CleanupPage({ narrow }: { narrow: boolean }) {
         const loading = busy.includes(r.id);
         return (
           <Flex gap={6} wrap justify="flex-end">
-            {live ? <Button size="small" danger type="primary" icon={<PoweroffOutlined aria-hidden />} disabled={loading} onClick={() => judge(r, "close", true)}>{t("cleanup.close")}</Button> : null}
+            {live
+              ? <Button size="small" danger type="primary" icon={r.task ? <PauseCircleOutlined aria-hidden /> : <PoweroffOutlined aria-hidden />} disabled={loading} onClick={() => judge(r, "close", true)}>
+                  {r.task ? t("jobs.disable") : t("cleanup.close")}
+                </Button>
+              : null}
             <Button size="small" icon={<CheckOutlined aria-hidden />} disabled={loading} onClick={() => judge(r, live ? "keep" : "close", false)}>
               {live ? (narrow ? t("cleanup.keepShort") : t("cleanup.keep")) : t("cleanup.alreadyClosed")}
             </Button>

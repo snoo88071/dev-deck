@@ -25,6 +25,8 @@ export interface Proc {
   launcher: string | null;
   parent_alive: boolean;
   claude_pid: number | null;
+  /** The scheduled task that started it. */
+  task?: string | null;
 }
 
 export interface Group {
@@ -71,6 +73,50 @@ function run(args: string[]): Promise<any> {
 
 export async function list(): Promise<Group[]> {
   return (await run(["list"])).groups as Group[];
+}
+
+export interface Trigger {
+  kind: string;
+  /** Local time `YYYY-MM-DDTHH:MM:SS`. */
+  start: string | null;
+  every: number;
+  /** 0 = Sunday. */
+  days: number[];
+  repeat_minutes: number | null;
+  enabled: boolean;
+}
+
+/** A scheduled task that runs something in a project (src-tauri/src/tasks.rs). */
+export interface Job {
+  path: string;
+  name: string;
+  folder: string;
+  enabled: boolean;
+  running: boolean;
+  cmd: string;
+  runtime: string;
+  script: string | null;
+  workdir: string | null;
+  missing: string | null;
+  triggers: Trigger[];
+  last_run: string | null;
+  next_run: string | null;
+  last_result: number;
+  result: string;
+  pids: number[];
+  author: string | null;
+  description: string | null;
+}
+
+export interface JobGroup {
+  root: string;
+  name: string;
+  jobs: Job[];
+}
+
+/** The scheduled tasks that run something in a project, by project. */
+export async function jobs(): Promise<JobGroup[]> {
+  return (await run(["jobs"])).groups as JobGroup[];
 }
 
 export async function kill(pids: number[]): Promise<number> {

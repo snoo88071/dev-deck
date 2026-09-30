@@ -1,4 +1,4 @@
-/** The shapes Rust sends (src-tauri/src/procs.rs, sessions.rs, describe.rs). */
+/** The shapes Rust sends (src-tauri/src/procs.rs, sessions.rs, describe.rs, tasks.rs). */
 
 export interface Proc {
   pid: number;
@@ -19,6 +19,8 @@ export interface Proc {
   launcher: string | null;
   parent_alive?: boolean;
   claude_pid?: number | null;
+  /** The scheduled task that started it. */
+  task?: string | null;
 }
 
 export interface Group {
@@ -85,6 +87,8 @@ export interface ProposalRecord {
   root: string | null;
   ports: number[];
   evidence: string[];
+  /** A scheduled task instead of a process (pid 0, no pids): its path in the Task Scheduler. */
+  task?: string;
 }
 export interface VerdictRecord {
   type: "verdict";
@@ -97,11 +101,58 @@ export interface ActionRecord {
   type: "action";
   at: string;
   source: "claude" | "panel";
-  action: "kill" | "restart";
+  action: "kill" | "restart" | "disable";
   pids: number[];
+  /** For "disable": the task's path. */
+  task?: string;
   reason: string;
   proposal?: string;
   ok: boolean;
   error?: string;
 }
 export type ShadowRecord = ProposalRecord | VerdictRecord | ActionRecord;
+
+export interface Trigger {
+  kind: "once" | "daily" | "weekly" | "monthly" | "logon" | "boot" | "idle" | "event" | "other";
+  /** Local time, `YYYY-MM-DDTHH:MM:SS`: its time of day is the schedule's. */
+  start: string | null;
+  /** Every N days (daily) or weeks (weekly). */
+  every: number;
+  /** Weekly: 0 = Sunday. */
+  days: number[];
+  repeat_minutes: number | null;
+  enabled: boolean;
+}
+
+export type JobResult =
+  | "ok" | "running" | "not-run" | "terminated" | "folder-missing" | "file-missing"
+  | "path-missing" | "denied" | "refused" | "exit" | "error";
+
+/** A scheduled task that runs something in a project. `path` is its id in the Task Scheduler. */
+export interface Job {
+  path: string;
+  name: string;
+  folder: string;
+  enabled: boolean;
+  running: boolean;
+  cmd: string;
+  runtime: string;
+  script: string | null;
+  workdir: string | null;
+  /** The folder or script that no longer exists. */
+  missing: string | null;
+  triggers: Trigger[];
+  last_run: string | null;
+  next_run: string | null;
+  last_result: number;
+  result: JobResult;
+  pids: number[];
+  author: string | null;
+  description: string | null;
+}
+
+export interface JobGroup {
+  root: string;
+  name: string;
+  jobs: Job[];
+}

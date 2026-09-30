@@ -6958,7 +6958,7 @@ var require_formats = __commonJS({
       return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
     }
     var DATE = /^(\d\d\d\d)-(\d\d)-(\d\d)$/;
-    var DAYS = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    var DAYS2 = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
     function date5(str) {
       const matches = DATE.exec(str);
       if (!matches)
@@ -6966,7 +6966,7 @@ var require_formats = __commonJS({
       const year = +matches[1];
       const month = +matches[2];
       const day = +matches[3];
-      return month >= 1 && month <= 12 && day >= 1 && day <= (month === 2 && isLeapYear(year) ? 29 : DAYS[month]);
+      return month >= 1 && month <= 12 && day >= 1 && day <= (month === 2 && isLeapYear(year) ? 29 : DAYS2[month]);
     }
     function compareDate(d1, d2) {
       if (!(d1 && d2))
@@ -7209,7 +7209,7 @@ var require_cleanup = __commonJS({
     })(typeof self !== "undefined" ? self : exports, function() {
       "use strict";
       var IDLE_HOURS = 12;
-      var CATEGORIES = ["orphan-mcp", "duplicate", "session", "idle"];
+      var CATEGORIES = ["orphan-mcp", "duplicate", "session", "idle", "task-gone", "task-failing"];
       function isMcp(p) {
         return /(^|[\s\\/@_-])mcp([\s\\/@_.-]|$)|mcp-|-mcp/i.test((p.tool || "") + " " + p.cmd);
       }
@@ -7341,13 +7341,70 @@ var require_cleanup = __commonJS({
         });
         return out;
       }
+      var RESULTS = {
+        "terminated": "stopped before the end",
+        "folder-missing": "the folder doesn't exist (0x8007010B)",
+        "file-missing": "file not found (0x80070002)",
+        "path-missing": "path not found (0x80070003)",
+        "denied": "access denied (0x80070005)",
+        "refused": "refused by Windows (0x800710E0)"
+      };
+      var FAILED = ["exit", "error", "folder-missing", "file-missing", "path-missing", "denied", "refused"];
+      function resultText(j) {
+        if (j.result === "exit") return "exit code " + j.last_result;
+        return RESULTS[j.result] || "0x" + (j.last_result >>> 0).toString(16).toUpperCase();
+      }
+      function stamp2(iso) {
+        return String(iso).replace("T", " ").slice(0, 16);
+      }
+      function proposeTasks(jobGroups, ctx) {
+        var projects = ctx && ctx.projects || [];
+        var out = [];
+        jobGroups.forEach(function(g) {
+          if (projects.length && !inProjects(g.root, projects)) return;
+          g.jobs.forEach(function(j) {
+            if (!j.enabled) return;
+            var next = j.next_run ? ["still scheduled: next run " + stamp2(j.next_run)] : [];
+            var last = j.last_run ? "last run " + stamp2(j.last_run) : null;
+            var category, evidence;
+            if (j.missing) {
+              category = "task-gone";
+              evidence = [(j.missing === j.workdir ? "its folder " : "its script ") + j.missing + " no longer exists"].concat(last ? [last + ": " + (FAILED.indexOf(j.result) >= 0 ? "failed, " + resultText(j) : j.result)] : []).concat(next);
+            } else if (j.last_run && FAILED.indexOf(j.result) >= 0 && !j.running) {
+              category = "task-failing";
+              evidence = [last + " failed: " + resultText(j)].concat(next);
+            } else {
+              return;
+            }
+            out.push({
+              id: category + ":" + j.path,
+              category,
+              task: j.path,
+              name: j.name,
+              pid: 0,
+              pids: [],
+              root: g.root,
+              project: g.name,
+              cmd: j.cmd,
+              ports: [],
+              evidence
+            });
+          });
+        });
+        out.sort(function(a, b) {
+          return CATEGORIES.indexOf(a.category) - CATEGORIES.indexOf(b.category);
+        });
+        return out;
+      }
       var LABELS = {
         "orphan-mcp": "Orphan MCP server",
         "duplicate": "Duplicate",
         "session": "Started by this session",
-        "idle": "Idle for a long time"
+        "idle": "Idle for a long time",
+        "task-gone": "Task pointing to a missing path",
+        "task-failing": "Failing task"
       };
-      return { propose, isMcp, inProjects, CATEGORIES, LABELS, IDLE_HOURS };
+      return { propose, proposeTasks, isMcp, inProjects, CATEGORIES, LABELS, IDLE_HOURS };
     });
   }
 });
@@ -36669,6 +36726,9 @@ function run(args) {
 async function list() {
   return (await run(["list"])).groups;
 }
+async function jobs() {
+  return (await run(["jobs"])).groups;
+}
 async function kill(pids) {
   return (await run(["kill", ...pids.map(String)])).killed;
 }
@@ -36756,7 +36816,7 @@ function recordProposals(proposals, path = shadowPath()) {
   const records = readShadow(path);
   const open2 = pending(records);
   const gone = dismissed(records);
-  const same = (a, b) => a.category === b.category && a.pid === b.pid && a.cmd === b.cmd;
+  const same = (a, b) => a.category === b.category && (a.task || b.task ? a.task === b.task : a.pid === b.pid && a.cmd === b.cmd);
   return proposals.filter((p) => !gone.some((d) => same(d, p))).map((p) => {
     const prev = open2.find((o) => same(o, p));
     if (prev) return prev;
@@ -36788,9 +36848,49 @@ function age(sec) {
 function procLine(p) {
   const who = [p.runtime, p.tool].filter(Boolean).join("/");
   const ports = p.ports.length ? ` :${p.ports.join(" :")}` : "";
-  const tag = p.claude ? " [Claude Code]" : p.launcher === "claude" ? " [from Claude Code]" : "";
+  const tag = (p.claude ? " [Claude Code]" : p.launcher === "claude" ? " [from Claude Code]" : "") + (p.task ? ` [scheduled task "${p.task}"]` : "");
   return `${"  ".repeat(p.depth)}- pid ${p.pid} ${who}${ports} \xB7 ${mb(p.memory)} \xB7 up ${age(p.run_time)}${tag}
 ${"  ".repeat(p.depth)}  ${p.cmd.slice(0, 160)}`;
+}
+var DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+var stamp = (iso) => iso.replace("T", " ").slice(0, 16);
+function triggerText(t) {
+  const time3 = t.start ? t.start.slice(11, 16) : "";
+  let s;
+  if (t.kind === "daily") s = t.every > 1 ? `every ${t.every} days at ${time3}` : `every day at ${time3}`;
+  else if (t.kind === "weekly") s = `${t.every > 1 ? `every ${t.every} weeks, ` : ""}${[...t.days].sort((a, b) => (a + 6) % 7 - (b + 6) % 7).map((d) => DAYS[d]).join(", ")} at ${time3}`;
+  else if (t.kind === "once") s = `once, ${t.start ? stamp(t.start) : "?"}`;
+  else s = { monthly: "monthly", logon: "at sign-in", boot: "at startup", idle: "when the PC is idle", event: "on a system event" }[t.kind] ?? "on another trigger";
+  if (t.repeat_minutes) s += `, then every ${t.repeat_minutes % 60 ? `${t.repeat_minutes} min` : `${t.repeat_minutes / 60} h`}`;
+  return t.enabled ? s : `${s} (trigger off)`;
+}
+function outcomeText(j) {
+  if (j.running || j.result === "running") return "running now";
+  if (!j.last_run || j.result === "not-run") return "never ran";
+  const code = `0x${(j.last_result >>> 0).toString(16).toUpperCase()}`;
+  const words = {
+    ok: "succeeded",
+    exit: `ended with exit code ${j.last_result}`,
+    terminated: "stopped before the end",
+    "folder-missing": `failed: the folder doesn't exist (${code})`,
+    "file-missing": `failed: file not found (${code})`,
+    "path-missing": `failed: path not found (${code})`,
+    denied: `failed: access denied (${code})`,
+    refused: `refused by Windows (${code})`
+  };
+  return `${stamp(j.last_run)}, ${words[j.result] ?? `failed (${code})`}`;
+}
+function jobLines(j) {
+  const when = j.triggers.length ? j.triggers.map(triggerText).join("; ") : "only when started by hand";
+  const next = !j.enabled ? "DISABLED" : j.next_run ? `next: ${stamp(j.next_run)}` : "no next run";
+  return [
+    `- "${j.name}" (${j.path}) \xB7 ${j.runtime} \xB7 ${when} \xB7 ${next}`,
+    `  runs: ${j.cmd.slice(0, 200)}`,
+    j.workdir ? `  in: ${j.workdir}` : null,
+    `  last run: ${outcomeText(j)}`,
+    j.missing ? `  MISSING: ${j.missing} no longer exists, so every run fails` : null,
+    j.description ? `  about: ${j.description.slice(0, 200)}` : null
+  ].filter(Boolean).join("\n");
 }
 function text(t) {
   return { content: [{ type: "text", text: t }] };
@@ -36871,10 +36971,34 @@ ${lines.join("\n")}`);
   }
 );
 server.registerTool(
+  "dev_jobs",
+  {
+    title: "Scheduled tasks",
+    description: "Lists the Windows scheduled tasks (Task Scheduler) that run something in a project: scripts that run on a schedule (every day at 7, every 48 hours...), grouped by project, with what they run, when, the last run and its outcome, the next run, and whether their folder or script is gone. By default only this session's projects; with scope 'all', every project on the machine. Check it BEFORE creating a scheduled task (to update one that exists instead of adding a duplicate) and when the user asks what runs on a schedule. Read only: running, disabling or deleting a task is done by the user in the Dev Deck panel (Scheduled page).",
+    inputSchema: {
+      scope: external_exports.enum(["session", "all"]).default("session").describe("session: this session's projects; all: every project on the machine"),
+      projects: external_exports.array(external_exports.string()).optional().describe("other project folders this session is working on")
+    }
+  },
+  async ({ scope, projects }) => {
+    const dirs = projectsOf(projects);
+    const groups = (await jobs()).filter((g) => scope === "all" || cleanup.inProjects(g.root, dirs));
+    const where = scope === "all" ? "on this machine" : `in ${dirs.join(", ")}`;
+    if (!groups.length) return text(`No scheduled task runs anything ${where}.`);
+    const n = groups.reduce((s, g) => s + g.jobs.length, 0);
+    const blocks = groups.map((g) => `## ${g.name}
+${g.root}
+${g.jobs.map(jobLines).join("\n")}`);
+    return text(`${n} scheduled task${n === 1 ? "" : "s"} ${where}:
+
+${blocks.join("\n\n")}`);
+  }
+);
+server.registerTool(
   "dev_cleanup",
   {
     title: "Cleanup (shadow mode)",
-    description: "Proposes which development processes to close, by category (orphan-mcp, duplicate, session, idle) and with the evidence for each, within the scope of this session and its projects. It runs IN SHADOW MODE: it closes nothing. The proposals are recorded in the shadow file to measure where Claude could later act on its own. Show the proposals to the user and ask what to do; if they decide, record their verdict with dev_verdict and close with dev_kill only what they said to close.",
+    description: "Proposes which development processes to close, by category (orphan-mcp, duplicate, session, idle) and with the evidence for each, within the scope of this session and its projects; and which scheduled tasks of those projects look broken (task-gone: their folder or script no longer exists; task-failing: their last run failed). It runs IN SHADOW MODE: it closes nothing. The proposals are recorded in the shadow file to measure where Claude could later act on its own. Show the proposals to the user and ask what to do; if they decide, record their verdict with dev_verdict and close with dev_kill only what they said to close.",
     inputSchema: {
       projects: external_exports.array(external_exports.string()).optional().describe("other project folders this session is working on")
     }
@@ -36883,7 +37007,8 @@ server.registerTool(
     const groups = await list();
     const session = sessionOf(groups);
     const dirs = projectsOf(projects);
-    const proposals = cleanup.propose(groups, { session, projects: dirs });
+    const jobGroups = await jobs().catch(() => []);
+    const proposals = [...cleanup.propose(groups, { session, projects: dirs }), ...cleanup.proposeTasks(jobGroups, { projects: dirs })];
     const recorded = recordProposals(
       proposals.map((p) => ({
         source: "claude",
@@ -36895,21 +37020,24 @@ server.registerTool(
         cmd: p.cmd,
         root: p.root,
         ports: p.ports,
-        evidence: p.evidence
+        evidence: p.evidence,
+        ...p.task ? { task: p.task } : {}
       }))
     );
     if (!recorded.length) return text(`Nothing to clean up in scope (session ${session ?? "?"}, projects: ${dirs.join(", ")}).`);
-    const lines = recorded.map(
-      (r) => `- [${r.id}] ${cleanup.LABELS[r.category] ?? r.category} \xB7 pid ${r.pid}${r.pids.length > 1 ? ` (+${r.pids.length - 1} children)` : ""} \xB7 ${r.root ?? "?"}
+    const lines = recorded.map((r) => {
+      const what = r.task ? `scheduled task "${r.task.split("\\").pop()}" (${r.task})` : `pid ${r.pid}${r.pids.length > 1 ? ` (+${r.pids.length - 1} children)` : ""}`;
+      return `- [${r.id}] ${cleanup.LABELS[r.category] ?? r.category} \xB7 ${what} \xB7 ${r.root ?? "?"}
   ${r.cmd.slice(0, 160)}
-  evidence: ${r.evidence.join("; ")}`
-    );
+  evidence: ${r.evidence.join("; ")}`;
+    });
+    const tasks = recorded.some((r) => r.task) ? " For a scheduled task, closing means disabling it: the user does that in the Dev Deck panel (Cleanup or Scheduled page); dev_kill doesn't apply." : "";
     return text(
       `SHADOW MODE: nothing was closed. ${recorded.length} proposals, recorded for the user's verdict:
 
 ${lines.join("\n")}
 
-Ask the user, for each one: close / right but keep / wrong. Then call dev_verdict with the id in brackets, and dev_kill only for the ones to close.`
+Ask the user, for each one: close / right but keep / wrong. Then call dev_verdict with the id in brackets, and dev_kill only for the processes to close.${tasks}`
     );
   }
 );

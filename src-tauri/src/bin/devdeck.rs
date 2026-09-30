@@ -5,10 +5,11 @@
 //!   devdeck restart <pid> [--title T] kills and relaunches with command, folder and environment
 //!   devdeck sessions                  the open Claude Code sessions, with their transcript
 //!   devdeck describe <id> [--force]   what a session is working on (claude -p, cached; only if descriptions are on)
+//!   devdeck jobs                      the scheduled tasks that run something in a project, by project
 //!
 //! Always exits with JSON on stdout: `{"ok":true,...}` or `{"ok":false,"error":"..."}`.
 
-use dev_deck_lib::{actions, describe, procs, sessions};
+use dev_deck_lib::{actions, describe, procs, sessions, tasks};
 use serde_json::{json, Value};
 use sysinfo::System;
 
@@ -16,6 +17,7 @@ use sysinfo::System;
 enum Cmd {
     List,
     Sessions,
+    Jobs,
     Describe { id: String, force: bool },
     Kill(Vec<u32>),
     Restart { pid: u32, title: String },
@@ -26,6 +28,7 @@ fn parse(args: &[String]) -> Result<Cmd, String> {
     match args.first().map(String::as_str) {
         Some("list") => Ok(Cmd::List),
         Some("sessions") => Ok(Cmd::Sessions),
+        Some("jobs") => Ok(Cmd::Jobs),
         Some("describe") => Ok(Cmd::Describe {
             id: args.get(1).filter(|a| !a.starts_with("--")).cloned().ok_or("describe needs a session id (or pid)")?,
             force: args.iter().any(|a| a == "--force"),
@@ -45,8 +48,8 @@ fn parse(args: &[String]) -> Result<Cmd, String> {
             };
             Ok(Cmd::Restart { pid: pid(p)?, title })
         }
-        Some(other) => Err(format!("unknown command: {other} (list, sessions, describe, kill, restart)")),
-        None => Err("usage: devdeck list | sessions | describe <id> [--force] | kill <pid>... | restart <pid> [--title T]".into()),
+        Some(other) => Err(format!("unknown command: {other} (list, sessions, jobs, describe, kill, restart)")),
+        None => Err("usage: devdeck list | sessions | jobs | describe <id> [--force] | kill <pid>... | restart <pid> [--title T]".into()),
     }
 }
 
@@ -59,7 +62,9 @@ fn run(cmd: Cmd) -> Result<Value, String> {
             std::thread::sleep(std::time::Duration::from_millis(300));
             let all = procs::snapshot(&mut sys);
             let own = procs::own_tree(&all);
-            Ok(json!({ "groups": procs::group(&all, &|p| p.exists(), &own) }))
+            let mut groups = procs::group(&all, &|p| p.exists(), &own);
+            procs::tag_tasks(&mut groups, &all, &tasks::engines());
+            Ok(json!({ "groups": groups }))
         }
         Cmd::Sessions => {
             let all = procs::snapshot(&mut sys);
@@ -83,6 +88,7 @@ fn run(cmd: Cmd) -> Result<Value, String> {
                 .ok_or_else(|| format!("no open session with id or pid {id}"))?;
             Ok(json!({ "description": describe::describe(&s, force)? }))
         }
+        Cmd::Jobs => Ok(json!({ "groups": tasks::jobs()? })),
         Cmd::Kill(pids) => Ok(json!({ "killed": actions::kill(&mut sys, &pids)? })),
         Cmd::Restart { pid, title } => {
             actions::restart(&mut sys, pid, &title)?;
@@ -119,6 +125,7 @@ mod tests {
     fn parses_the_arguments() {
         assert_eq!(parse(&a(&["list"])), Ok(Cmd::List));
         assert_eq!(parse(&a(&["sessions"])), Ok(Cmd::Sessions));
+        assert_eq!(parse(&a(&["jobs"])), Ok(Cmd::Jobs));
         assert_eq!(parse(&a(&["describe", "abc", "--force"])), Ok(Cmd::Describe { id: "abc".into(), force: true }));
         assert!(parse(&a(&["describe"])).is_err());
         assert_eq!(parse(&a(&["kill", "12", "34"])), Ok(Cmd::Kill(vec![12, 34])));

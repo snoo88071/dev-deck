@@ -6,7 +6,7 @@
     {
       "name": "dev-deck",
       "source": "./",
-      "description": "See and tidy up the dev processes on your machine: an MCP server over Dev Deck, and a skill that has Claude check for servers it left running.",
+      "description": "See and tidy up the dev processes and scheduled tasks on your machine: an MCP server over Dev Deck, and skills that have Claude check for servers it left running and keep the scheduled tasks it creates findable.",
       "category": "development"
     }
   ]

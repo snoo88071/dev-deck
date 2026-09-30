@@ -13,7 +13,13 @@
  *                not an MCP): to close when the session is done
  *   idle         running for more than IDLE_HOURS, zero CPU, no port in its tree
  *
- * Never proposed: Claude Code, MCP servers of live sessions, Dev Deck.
+ * And for the scheduled tasks of `jobs` (or `devdeck jobs`), with `proposeTasks`:
+ *   task-gone    the folder or script the task runs no longer exists: it can only fail
+ *   task-failing its last run failed
+ * A task proposal has `task` (its path in the Task Scheduler) and no pids; closing
+ * it means disabling the task, not deleting it.
+ *
+ * Never proposed: Claude Code, MCP servers of live sessions, Dev Deck, disabled tasks.
  */
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory();
@@ -22,7 +28,7 @@
   "use strict";
 
   var IDLE_HOURS = 12;
-  var CATEGORIES = ["orphan-mcp", "duplicate", "session", "idle"];
+  var CATEGORIES = ["orphan-mcp", "duplicate", "session", "idle", "task-gone", "task-failing"];
 
   function isMcp(p) {
     return /(^|[\s\\/@_-])mcp([\s\\/@_.-]|$)|mcp-|-mcp/i.test((p.tool || "") + " " + p.cmd);
@@ -177,12 +183,77 @@
     return out;
   }
 
+  /** A task's last result in words (Rust's `result`); the code for the others. */
+  var RESULTS = {
+    "terminated": "stopped before the end",
+    "folder-missing": "the folder doesn't exist (0x8007010B)",
+    "file-missing": "file not found (0x80070002)",
+    "path-missing": "path not found (0x80070003)",
+    "denied": "access denied (0x80070005)",
+    "refused": "refused by Windows (0x800710E0)"
+  };
+  var FAILED = ["exit", "error", "folder-missing", "file-missing", "path-missing", "denied", "refused"];
+  function resultText(j) {
+    if (j.result === "exit") return "exit code " + j.last_result;
+    return RESULTS[j.result] || "0x" + (j.last_result >>> 0).toString(16).toUpperCase();
+  }
+  /** Rust's local `2026-09-28T07:30:00` as `2026-09-28 07:30`. */
+  function stamp(iso) { return String(iso).replace("T", " ").slice(0, 16); }
+
+  /**
+   * @param jobGroups  the groups from `jobs`
+   * @param ctx        { projects: folders to look at (empty = all) }
+   * @returns proposals [{ id, category, task, name, pid: 0, pids: [], root, project, cmd, evidence[], ports: [] }]
+   */
+  function proposeTasks(jobGroups, ctx) {
+    var projects = (ctx && ctx.projects) || [];
+    var out = [];
+    jobGroups.forEach(function (g) {
+      if (projects.length && !inProjects(g.root, projects)) return;
+      g.jobs.forEach(function (j) {
+        // A disabled task runs nothing: there is nothing to close.
+        if (!j.enabled) return;
+        var next = j.next_run ? ["still scheduled: next run " + stamp(j.next_run)] : [];
+        var last = j.last_run ? "last run " + stamp(j.last_run) : null;
+        var category, evidence;
+        if (j.missing) {
+          category = "task-gone";
+          evidence = [(j.missing === j.workdir ? "its folder " : "its script ") + j.missing + " no longer exists"]
+            .concat(last ? [last + ": " + (FAILED.indexOf(j.result) >= 0 ? "failed, " + resultText(j) : j.result)] : [])
+            .concat(next);
+        } else if (j.last_run && FAILED.indexOf(j.result) >= 0 && !j.running) {
+          category = "task-failing";
+          evidence = [last + " failed: " + resultText(j)].concat(next);
+        } else {
+          return;
+        }
+        out.push({
+          id: category + ":" + j.path,
+          category: category,
+          task: j.path,
+          name: j.name,
+          pid: 0,
+          pids: [],
+          root: g.root,
+          project: g.name,
+          cmd: j.cmd,
+          ports: [],
+          evidence: evidence
+        });
+      });
+    });
+    out.sort(function (a, b) { return CATEGORIES.indexOf(a.category) - CATEGORIES.indexOf(b.category); });
+    return out;
+  }
+
   var LABELS = {
     "orphan-mcp": "Orphan MCP server",
     "duplicate": "Duplicate",
     "session": "Started by this session",
-    "idle": "Idle for a long time"
+    "idle": "Idle for a long time",
+    "task-gone": "Task pointing to a missing path",
+    "task-failing": "Failing task"
   };
 
-  return { propose: propose, isMcp: isMcp, inProjects: inProjects, CATEGORIES: CATEGORIES, LABELS: LABELS, IDLE_HOURS: IDLE_HOURS };
+  return { propose: propose, proposeTasks: proposeTasks, isMcp: isMcp, inProjects: inProjects, CATEGORIES: CATEGORIES, LABELS: LABELS, IDLE_HOURS: IDLE_HOURS };
 });

@@ -5,13 +5,13 @@
  */
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Empty, Flex, Table, Tag, Typography, theme, type TableColumnsType } from "antd";
-import { CloseOutlined, CodeOutlined, FolderOpenOutlined, PoweroffOutlined, ReloadOutlined } from "@ant-design/icons";
+import { Empty, Flex, Table, Tag, Tooltip, Typography, theme, type TableColumnsType } from "antd";
+import { CloseOutlined, CodeOutlined, FieldTimeOutlined, FolderOpenOutlined, PoweroffOutlined, ReloadOutlined } from "@ant-design/icons";
 import { IconButton, Mono, PortTag } from "../components/bits";
 import { useActions } from "../components/actions";
 import { chainOf, cpu, matches, mb, serversOf, since } from "../format";
 import { useDeck } from "../store";
-import type { Group, Proc } from "../types";
+import type { Group, JobGroup, Proc } from "../types";
 
 type Row =
   | { key: string; kind: "group"; g: Group; level: 0; children?: Row[] }
@@ -20,6 +20,8 @@ type Row =
 
 const byClaude = (p: Proc) => p.launcher === "claude";
 const groupKey = (g: Group) => `g:${g.root ?? g.name}`;
+/** Rust writes both roots the same way; only the case can differ on Windows. */
+const sameRoot = (a: string | null, b: string) => !!a && a.toLowerCase() === b.toLowerCase();
 
 /** Rust sends each tree flat, every root followed by its descendants with their depth. */
 function nest(g: Group, procs: Proc[], base: number): Row[] {
@@ -49,7 +51,7 @@ function openKeys(row: Row): string[] {
   return row.children?.length ? [row.key, ...row.children.flatMap(openKeys)] : [];
 }
 
-function ProcessTable({ groups, narrow }: { groups: Group[]; narrow: boolean }) {
+function ProcessTable({ groups, narrow, jobs, showJobs }: { groups: Group[]; narrow: boolean; jobs: JobGroup[]; showJobs: (root: string) => void }) {
   const { token } = theme.useToken();
   const { t } = useTranslation();
   const { stop, restart, openFolder } = useActions();
@@ -61,11 +63,19 @@ function ProcessTable({ groups, narrow }: { groups: Group[]; narrow: boolean }) 
     const room = `calc(100% - ${r.level * 14 + 30}px)`;
     if (r.kind === "group") {
       const mine = r.g.by_claude ? r.g.procs : r.g.procs.filter((p) => !byClaude(p));
+      const nJobs = jobs.find((j) => sameRoot(r.g.root, j.root))?.jobs.length ?? 0;
       return (
         <span style={{ display: "inline-flex", flexDirection: "column", verticalAlign: "middle", maxWidth: room, minWidth: 0 }}>
           <Flex gap={6} align="center" wrap>
             <Typography.Text strong>{r.g.name}</Typography.Text>
             <Mono type="secondary">{r.g.by_claude ? serversOf(mine) : chainOf(mine)}</Mono>
+            {nJobs ? (
+              <Tag icon={<FieldTimeOutlined aria-hidden />} role="button" tabIndex={0} title={t("processes.jobsHint")}
+                onClick={() => showJobs(r.g.root!)} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && showJobs(r.g.root!)}
+                style={{ cursor: "pointer", marginInlineEnd: 0 }}>
+                {t("processes.jobs", { count: nJobs })}
+              </Tag>
+            ) : null}
           </Flex>
           {r.g.root ? <Mono type="secondary" ellipsis style={{ fontSize: 12 }}>{r.g.root}</Mono> : <Typography.Text type="secondary" italic>{t("processes.unknownFolder")}</Typography.Text>}
         </span>
@@ -80,6 +90,9 @@ function ProcessTable({ groups, narrow }: { groups: Group[]; narrow: boolean }) 
         <Tag style={{ marginInlineEnd: 0 }}>{p.runtime}</Tag>
         {p.tool ? <Typography.Text strong style={{ whiteSpace: "nowrap" }}>{p.tool}</Typography.Text> : null}
         {p.claude ? <Tag color="warning" style={{ marginInlineEnd: 0 }}>{t("processes.claudeCode")}</Tag> : null}
+        {p.task
+          ? <Tooltip title={t("processes.byTask", { name: p.task })}><Tag icon={<FieldTimeOutlined aria-hidden />} style={{ marginInlineEnd: 0 }}>{p.task}</Tag></Tooltip>
+          : null}
         <Mono type="secondary" ellipsis style={{ minWidth: 0 }}>{p.cmd}</Mono>
       </span>
     );
@@ -148,7 +161,7 @@ function ProcessTable({ groups, narrow }: { groups: Group[]; narrow: boolean }) 
   );
 }
 
-export function ProcessesPage({ narrow }: { narrow: boolean }) {
+export function ProcessesPage({ narrow, showJobs }: { narrow: boolean; showJobs: (root: string) => void }) {
   const { t } = useTranslation();
   const deck = useDeck();
   const f = deck.filter;
@@ -163,13 +176,13 @@ export function ProcessesPage({ narrow }: { narrow: boolean }) {
   }
   return (
     <Flex vertical gap={20}>
-      {mine.length ? <ProcessTable groups={mine} narrow={narrow} /> : null}
+      {mine.length ? <ProcessTable groups={mine} narrow={narrow} jobs={deck.jobs} showJobs={showJobs} /> : null}
       {claude.length ? (
         <section aria-labelledby="claude-title">
           <Typography.Text id="claude-title" type="secondary" style={{ display: "block", marginBottom: 8, fontSize: 12, fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase" }}>
             {t("processes.launchedByClaude", { servers: t("count.mcpServer", { count: nClaude }), folders: t("count.folder", { count: claude.length }) })}
           </Typography.Text>
-          <ProcessTable groups={claude} narrow={narrow} />
+          <ProcessTable groups={claude} narrow={narrow} jobs={deck.jobs} showJobs={showJobs} />
         </section>
       ) : null}
     </Flex>

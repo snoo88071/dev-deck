@@ -168,9 +168,10 @@ pub fn open_port(port: u16) -> Result<(), String> {
     open_target(&format!("http://localhost:{port}"))
 }
 
-/// Opens a folder: in File Explorer, or in VS Code.
+/// Opens a folder: in File Explorer, or in VS Code. In VS Code also a file (a task's script).
 pub fn open_folder(path: &str, editor: bool) -> Result<(), String> {
-    if !Path::new(path).is_dir() {
+    let p = Path::new(path);
+    if !(p.is_dir() || (editor && p.is_file())) {
         return Err(format!("{path} is not a folder"));
     }
     if editor {

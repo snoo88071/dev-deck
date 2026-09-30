@@ -23,6 +23,20 @@ test("an identical proposal still pending is not duplicated", () => {
   assert.notEqual(c.id, a.id);
 });
 
+test("task proposals: one per task and category, whatever pid 0 would say", () => {
+  const f = tmp();
+  const task = (path: string) => ({ ...prop("task-failing", 0), pids: [], cmd: "node x.js", task: path });
+  const [a] = recordProposals([task("\\Nightly")], f);
+  const [b] = recordProposals([task("\\Nightly")], f);
+  const [c] = recordProposals([task("\\Weekly")], f);
+  assert.equal(a.id, b.id);
+  assert.notEqual(a.id, c.id);
+  assert.equal(a.task, "\\Nightly");
+  recordVerdict(a.id, "keep", undefined, f);
+  // Kept: it doesn't come back for the same task.
+  assert.deepEqual(recordProposals([task("\\Nightly")], f), []);
+});
+
 test("a kept or wrong proposal doesn't come back for the same process", () => {
   const f = tmp();
   const [a] = recordProposals([prop("duplicate", 10)], f);

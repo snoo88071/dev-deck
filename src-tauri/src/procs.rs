@@ -48,6 +48,8 @@ pub struct Proc {
     pub parent_alive: bool,
     /// The pid of the nearest Claude Code among the ancestors: the session it belongs to.
     pub claude_pid: Option<u32>,
+    /// The scheduled task that started it (itself or an ancestor is the task's process).
+    pub task: Option<String>,
 }
 
 /// The processes of one project.
@@ -323,6 +325,7 @@ pub fn group(all: &[RawProc], has: &dyn Fn(&Path) -> bool, exclude: &HashSet<u32
                         launcher: launcher_of(p),
                         parent_alive: p.parent.is_some_and(|x| by_pid.contains_key(&x)),
                         claude_pid: claude_of(p),
+                        task: None,
                         pid: p.pid,
                         parent: p.parent,
                         runtime: runtime_of(&p.name).unwrap_or("?").to_string(),
@@ -366,6 +369,30 @@ pub fn group(all: &[RawProc], has: &dyn Fn(&Path) -> bool, exclude: &HashSet<u32
             .then(a.name.to_lowercase().cmp(&b.name.to_lowercase()))
     });
     out
+}
+
+/// Marks the processes a scheduled task started: `engines` are the running tasks'
+/// own processes (pid → task name), and a process belongs to the nearest one among
+/// itself and its ancestors (a task's powershell → cmd → node).
+pub fn tag_tasks(groups: &mut [Group], all: &[RawProc], engines: &HashMap<u32, String>) {
+    if engines.is_empty() {
+        return;
+    }
+    let parent: HashMap<u32, Option<u32>> = all.iter().map(|p| (p.pid, p.parent)).collect();
+    for p in groups.iter_mut().flat_map(|g| g.procs.iter_mut()) {
+        let mut seen = HashSet::new();
+        let mut cur = Some(p.pid);
+        while let Some(pid) = cur {
+            if !seen.insert(pid) {
+                break;
+            }
+            if let Some(name) = engines.get(&pid) {
+                p.task = Some(name.clone());
+                break;
+            }
+            cur = parent.get(&pid).copied().flatten();
+        }
+    }
 }
 
 /* ---------- reading the system ---------- */
@@ -570,6 +597,22 @@ mod tests {
         let groups = group(&all, &has, &HashSet::new());
         assert!(groups.iter().flat_map(|g| &g.procs).all(|x| x.pid != 1));
         assert_eq!(groups[0].procs[0].claude_pid, Some(1));
+    }
+
+    #[test]
+    fn marks_what_a_scheduled_task_started() {
+        // The task runs powershell (500), which runs cmd, which runs node: node is the task's.
+        let all = vec![
+            p(500, Some(4), "powershell.exe", &["powershell", "-File", "run.ps1"], Some("C:/d/acme-shop/backend")),
+            p(501, Some(500), "cmd.exe", &["cmd", "/c", "node collect.mjs"], Some("C:/d/acme-shop/backend")),
+            p(502, Some(501), "node.exe", &["node", "collect.mjs"], Some("C:/d/acme-shop/backend")),
+            p(600, Some(1), "node.exe", &["node", "vite"], Some("C:/d/dev-deck")),
+        ];
+        let mut groups = group(&all, &has, &HashSet::new());
+        tag_tasks(&mut groups, &all, &HashMap::from([(500, "Nightly collect".to_string())]));
+        let task = |pid| groups.iter().flat_map(|g| &g.procs).find(|x| x.pid == pid).unwrap().task.clone();
+        assert_eq!(task(502).as_deref(), Some("Nightly collect"));
+        assert_eq!(task(600), None);
     }
 
     #[test]

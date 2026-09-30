@@ -31,7 +31,13 @@ for (const entry of ["src/server.ts", "dist/server.mjs"]) test(`${entry}: dev_pr
   await client.connect(transport);
   try {
     const tools = (await client.listTools()).tools.map((t) => t.name).sort();
-    assert.deepEqual(tools, ["dev_cleanup", "dev_kill", "dev_processes", "dev_restart", "dev_sessions", "dev_verdict"]);
+    assert.deepEqual(tools, ["dev_cleanup", "dev_jobs", "dev_kill", "dev_processes", "dev_restart", "dev_sessions", "dev_verdict"]);
+
+    // Scheduled tasks: read only, on the machine's real Task Scheduler.
+    const jobsText = ((await client.callTool({ name: "dev_jobs", arguments: { scope: "all" } })).content as any)[0].text as string;
+    assert.match(jobsText, /scheduled tasks? on this machine|No scheduled task runs anything on this machine/);
+    const real = (await devdeck.jobs()).flatMap((g) => g.jobs);
+    for (const j of real) assert.ok(jobsText.includes(`"${j.name}"`), `dev_jobs misses ${j.name}`);
 
     const before = (await devdeck.list()).flatMap((g) => g.procs).map((p) => p.pid);
     const listed = await client.callTool({ name: "dev_processes", arguments: {} });

@@ -42,6 +42,32 @@ terminal, from VS Code, and background jobs. The daemon and `claude -p` runs are
 
 From a terminal: `devdeck sessions` and `devdeck describe <id or pid> [--force]`.
 
+## Scheduled tasks
+
+The Scheduled page (and the `dev_jobs` MCP tool) lists the Windows Task Scheduler's tasks that
+run something in a project. Read with the Task Scheduler's API, not `schtasks`, whose output is
+in the Windows language.
+
+- **Which tasks**: those whose working folder, script (`-File x.ps1`, `x.py`, `scripts/x.ts`...)
+  or program sits in a project, found as for processes. `conhost --headless node x.js` counts
+  as `node x.js`. A task whose folder or script no longer exists is kept too, grouped under
+  that folder: it fails at every run, and that is the case worth seeing. Windows's own tasks
+  (`\Microsoft\`) never enter.
+- **What it shows**: what it runs, when (in words), the last run with its outcome (a Windows
+  code such as `0x8007010B` becomes "the folder doesn't exist"), the next run.
+- **Actions**: run now, disable, enable, open the script in VS Code, delete. Run, disable and
+  delete ask first. Rust checks again that the task is a project task before touching it.
+  **Delete** first saves the task's definition to `~/.dev-deck/deleted-tasks/` (UTF-16 XML, as
+  Windows writes it): `schtasks /create /tn "<name>" /xml "<file>"` brings it back.
+- **In Processes**: a process a task started (itself, or its `powershell` → `cmd` → `node`)
+  carries the task's name, and a project with tasks shows "N scheduled", which opens this
+  page on that project. The running tasks are read every 5 seconds in the background.
+- **From Claude Code**: `dev_jobs` is read only. The `dev-deck-jobs` skill has Claude check it
+  before creating a task, and register new ones under `\Dev Deck\` with the project as
+  working folder, so they show up here.
+
+The list refreshes every 10 seconds while the window is visible.
+
 ## Cleanup, in shadow mode
 
 The Cleanup tab (and `dev_cleanup` for Claude Code) proposes processes to close. Each proposal
@@ -53,6 +79,10 @@ has a category and its evidence:
 | **Duplicate** | same command in the same folder as another running process | the twin pid; the one with a port (or the oldest) stays |
 | **Started by this session** | a background server started by this Claude Code session (not an MCP) | age, ports held |
 | **Idle** | running for more than 12 hours, zero CPU, no port in its tree | age, CPU, ports |
+| **Task pointing to a missing path** | a scheduled task whose folder or script no longer exists | the missing path, last and next run |
+| **Failing task** | a scheduled task whose last run failed | when, and the outcome |
+
+For a scheduled task, "close" disables it (it isn't deleted). Disabled tasks are never proposed.
 
 Never proposed: Claude Code itself, MCP servers of a live session, Dev Deck.
 
@@ -80,6 +110,7 @@ Everything has a default derived from your home folder; these environment variab
 | `DEVDECK_DESCRIBE` | `1` / `0`: force session descriptions on or off (wins over the panel switch) |
 | `DEVDECK_SHADOW` | path of the shadow file (default `~/.dev-deck/shadow.jsonl`) |
 | `DEVDECK_SESSIONS` | path of the descriptions cache (default `~/.dev-deck/sessions.json`) |
+| `DEVDECK_DELETED_TASKS` | where deleted scheduled tasks leave their copy (default `~/.dev-deck/deleted-tasks/`) |
 | `DEVDECK_BIN` | path of the `devdeck` binary, for the MCP server |
 | `CLAUDE_BIN` | the Claude Code CLI used for descriptions (default `claude`) |
 | `DEVDECK_LANG` | `en`, `it`, `es`, `fr` or `pt`: the app's language instead of the Windows one |
@@ -90,6 +121,8 @@ Everything has a default derived from your home folder; these environment variab
   The logic runs on fake processes in the tests.
 - `src-tauri/src/actions.rs`: stop, restart, open, and the shadow file.
 - `src-tauri/src/sessions.rs`, `describe.rs`: Claude Code sessions and their descriptions.
+- `src-tauri/src/tasks.rs`: the scheduled tasks (the Task Scheduler's COM API), grouped by
+  project; the logic runs on fake tasks in the tests.
 - `src-tauri/src/lib.rs`: tray, window and the commands the panel calls.
 - `src-tauri/src/bin/devdeck.rs`: the same data and actions as JSON, for the MCP server.
 - `ui/`: the panel, React + TypeScript with [Ant Design](https://ant.design), built by Vite

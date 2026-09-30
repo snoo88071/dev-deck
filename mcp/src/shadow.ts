@@ -3,7 +3,7 @@
  *
  *   proposal  a cleanup proposal (from Claude Code or the panel), with its evidence
  *   verdict   your verdict on a proposal: close / keep / wrong
- *   action    a kill or restart actually done, with its reason
+ *   action    a kill, restart or task disable actually done, with its reason
  *
  * It measures, per category, how often the proposal was right: the sample on
  * which to decide where Claude could act on its own. The panel writes to the
@@ -31,6 +31,8 @@ export interface ProposalRecord {
   root: string | null;
   ports: number[];
   evidence: string[];
+  /** A scheduled task instead of a process (pid 0, no pids): its path in the Task Scheduler. */
+  task?: string;
 }
 export interface VerdictRecord {
   type: "verdict";
@@ -43,8 +45,10 @@ export interface ActionRecord {
   type: "action";
   at: string;
   source: "claude" | "panel";
-  action: "kill" | "restart";
+  action: "kill" | "restart" | "disable";
   pids: number[];
+  /** For "disable": the task's path. */
+  task?: string;
   reason: string;
   proposal?: string;
   ok: boolean;
@@ -127,8 +131,8 @@ export function pending(records: ShadowRecord[]): ProposalRecord[] {
 }
 
 /**
- * Proposals you already dismissed for that process: «keep» or «wrong». As long
- * as the process is the same (pid and command), it isn't proposed again.
+ * Proposals you already dismissed for that process (or task): «keep» or «wrong». As
+ * long as the process is the same (pid and command), it isn't proposed again.
  */
 export function dismissed(records: ShadowRecord[]): ProposalRecord[] {
   const verdicts = new Map<string, Verdict>();
@@ -140,8 +144,9 @@ export function dismissed(records: ShadowRecord[]): ProposalRecord[] {
 
 /**
  * Records the new proposals. An identical proposal (same category, same pid,
- * same command) still without a verdict isn't duplicated: the earlier one is returned.
- * Those you already dismissed for the same process don't come back at all.
+ * same command; for a task, same category and same task) still without a verdict
+ * isn't duplicated: the earlier one is returned. Those you already dismissed for
+ * the same process or task don't come back at all.
  */
 export function recordProposals(
   proposals: Omit<ProposalRecord, "type" | "id" | "at">[],
@@ -150,8 +155,9 @@ export function recordProposals(
   const records = readShadow(path);
   const open = pending(records);
   const gone = dismissed(records);
-  const same = (a: { category: string; pid: number; cmd: string }, b: { category: string; pid: number; cmd: string }) =>
-    a.category === b.category && a.pid === b.pid && a.cmd === b.cmd;
+  type Key = { category: string; pid: number; cmd: string; task?: string };
+  const same = (a: Key, b: Key) =>
+    a.category === b.category && (a.task || b.task ? a.task === b.task : a.pid === b.pid && a.cmd === b.cmd);
   return proposals.filter((p) => !gone.some((d) => same(d, p))).map((p) => {
     const prev = open.find((o) => same(o, p));
     if (prev) return prev;

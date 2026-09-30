@@ -22,8 +22,13 @@ Task Manager shows twelve `node.exe`. Dev Deck shows `acme-shop/backend Â· npm â
   and environment, **open** `localhost:PORT`, the folder, or VS Code.
 - **Claude Code sessions**: what's open, in which folder, the last prompt, and (opt-in) a
   one-line description of what each one is working on.
+- **Scheduled tasks by project**: the Windows Task Scheduler's tasks that run something in
+  a project (a nightly backup, a daily scrape), with what they run, when, and how the last run
+  went. Run now, disable, or delete (a copy of the definition is kept). A process a task
+  started says which one.
 - **Cleanup in shadow mode**: proposes what to close (orphan MCP servers, duplicates, idle
-  servers) with evidence, and never closes anything by itself.
+  servers, scheduled tasks whose folder is gone or that keep failing) with evidence, and never
+  closes anything by itself.
 - **An MCP server** so Claude Code can see and manage the same processes.
 - **Light and dark**, following Windows or pinned from the sidebar, in the Windows language.
 
@@ -58,7 +63,9 @@ the tray menu.
 
 Dev Deck is also a Claude Code plugin: an MCP server over the same data and actions, and a
 skill that has Claude check for servers it left running (at the end of a task, or when a
-port is busy) and offer to stop them. It never stops anything without your yes.
+port is busy) and offer to stop them. It never stops anything without your yes. A second skill
+has Claude look at your scheduled tasks before adding one, and register it where Dev Deck
+finds it (`\Dev Deck\`, in the project's folder).
 
 ```
 /plugin marketplace add snoo88071/dev-deck
@@ -67,7 +74,9 @@ port is busy) and offer to stop them. It never stops anything without your yes.
 
 It needs the Dev Deck app installed (it ships `devdeck-cli.exe`, which the MCP server calls)
 and Node.js 20+. Then, in a session: "did you leave anything running?". Tools:
-`dev_processes`, `dev_sessions`, `dev_cleanup`, `dev_verdict`, `dev_kill`, `dev_restart`.
+`dev_processes`, `dev_sessions`, `dev_jobs`, `dev_cleanup`, `dev_verdict`, `dev_kill`,
+`dev_restart`. Scheduled tasks are read only from Claude Code: running, disabling and deleting
+them happens in the panel.
 
 From a clone, without the plugin:
 
@@ -97,6 +106,9 @@ Corrections are very welcome.
 - Processes started as administrator have no readable working directory: they land in
   "unknown folder" and can't be restarted.
 - Restart always opens a new `cmd` window.
+- Scheduled tasks: only those your account can read (not SYSTEM's or another user's), and only
+  those whose working folder, script or program sits in a project, or points to a folder
+  that is gone.
 - It doesn't start with Windows on its own yet.
 
 ## Contributing

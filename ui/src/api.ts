@@ -4,7 +4,7 @@
  */
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { demoCall } from "./demo";
-import type { DescribeSettings, Description, Group, SessionRow, ShadowRecord } from "./types";
+import type { DescribeSettings, Description, Group, JobGroup, SessionRow, ShadowRecord } from "./types";
 
 export const DEMO = !isTauri();
 
@@ -25,4 +25,8 @@ export const api = {
   appLanguage: () => call<string>("app_language"),
   shadowRead: () => call<ShadowRecord[]>("shadow_read"),
   shadowAppend: (record: ShadowRecord) => call<void>("shadow_append", { record }),
+  jobs: () => call<JobGroup[]>("jobs"),
+  jobAct: (path: string, act: "run" | "enable" | "disable") => call<void>("job_act", { path, act }),
+  /** Returns where the copy of the task's definition went. */
+  jobDelete: (path: string) => call<string>("job_delete", { path }),
 };

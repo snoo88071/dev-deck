@@ -1,18 +1,22 @@
 /**
- * The panel's state: processes every 3 s and sessions every 15 s, only while the
+ * The panel's state: processes every 3 s, scheduled tasks every 10 s and sessions every 15 s, only while the
  * window is visible (closing it hides it to the tray), plus the shadow file and
  * the description setting. Pages read it through `useDeck()`.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api } from "./api";
-import type { DescribeSettings, Group, ProposalRecord, SessionRow, ShadowRecord } from "./types";
+import type { DescribeSettings, Group, JobGroup, ProposalRecord, SessionRow, ShadowRecord } from "./types";
 
 const PROCESSES_MS = 3000;
 const SESSIONS_MS = 15000;
+/** A read of the Task Scheduler takes about a tenth of a second; tasks change rarely. */
+const JOBS_MS = 10000;
 
 interface Deck {
   groups: Group[];
   sessions: SessionRow[];
+  jobs: JobGroup[];
+  jobsLoaded: boolean;
   shadow: ShadowRecord[];
   pending: ProposalRecord[];
   describe: DescribeSettings;
@@ -21,6 +25,7 @@ interface Deck {
   setFilter: (f: string) => void;
   refresh: () => Promise<void>;
   loadSessions: () => Promise<void>;
+  loadJobs: () => Promise<void>;
   loadShadow: () => Promise<void>;
   loadDescribe: () => Promise<void>;
 }
@@ -46,6 +51,8 @@ function useVisible(): boolean {
 export function DeckProvider({ children }: { children: ReactNode }) {
   const [groups, setGroups] = useState<Group[]>([]);
   const [sessions, setSessions] = useState<SessionRow[]>([]);
+  const [jobs, setJobs] = useState<JobGroup[]>([]);
+  const [jobsLoaded, setJobsLoaded] = useState(false);
   const [shadow, setShadow] = useState<ShadowRecord[]>([]);
   const [describe, setDescribe] = useState<DescribeSettings>({ enabled: false, forced: false });
   const [loaded, setLoaded] = useState(false);
@@ -68,6 +75,10 @@ export function DeckProvider({ children }: { children: ReactNode }) {
   const loadSessions = useCallback(async () => {
     try { setSessions(await api.sessions()); } catch { setSessions([]); }
   }, []);
+  const loadJobs = useCallback(async () => {
+    // A failed read keeps the last list, as for processes.
+    try { setJobs(await api.jobs()); setJobsLoaded(true); } catch { /* next tick */ }
+  }, []);
   const loadShadow = useCallback(async () => {
     try { setShadow(await api.shadowRead()); } catch { setShadow([]); }
   }, []);
@@ -84,16 +95,18 @@ export function DeckProvider({ children }: { children: ReactNode }) {
     if (!visible) return;
     refresh();
     loadSessions();
+    loadJobs();
     const a = setInterval(refresh, PROCESSES_MS);
     const b = setInterval(loadSessions, SESSIONS_MS);
-    return () => { clearInterval(a); clearInterval(b); };
-  }, [visible, refresh, loadSessions]);
+    const c = setInterval(loadJobs, JOBS_MS);
+    return () => { clearInterval(a); clearInterval(b); clearInterval(c); };
+  }, [visible, refresh, loadSessions, loadJobs]);
 
   const value = useMemo<Deck>(() => ({
-    groups, sessions, shadow, pending: pendingOf(shadow), describe, loaded,
+    groups, sessions, jobs, jobsLoaded, shadow, pending: pendingOf(shadow), describe, loaded,
     filter, setFilter: (f: string) => setFilterRaw(f.trim().toLowerCase()),
-    refresh, loadSessions, loadShadow, loadDescribe,
-  }), [groups, sessions, shadow, describe, loaded, filter, refresh, loadSessions, loadShadow, loadDescribe]);
+    refresh, loadSessions, loadJobs, loadShadow, loadDescribe,
+  }), [groups, sessions, jobs, jobsLoaded, shadow, describe, loaded, filter, refresh, loadSessions, loadJobs, loadShadow, loadDescribe]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

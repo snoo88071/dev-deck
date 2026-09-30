@@ -2,7 +2,7 @@
  * The panel in a real browser, on demo data: navigation and keyboard, the page
  * remembered across reloads, the filter ("/" and Esc), an open project surviving
  * a refresh, stopping with confirmation, opt-in descriptions and "Describe", a
- * verdict in Cleanup, the theme menu, the language following the system (English
+ * verdict in Cleanup, scheduled tasks (enable, disable, delete), the theme menu, the language following the system (English
  * when it isn't translated), and no horizontal scrolling at
  * 1280, 760 and 420 px in both themes. Screenshots go to tools/shots/.
  *
@@ -80,8 +80,21 @@ try {
   assert.ok(await tsxRow.first().isVisible());
   ok("an open project keeps its tree open when the list refreshes");
 
-  // Stop asks first, then the project is gone.
+  // A process a scheduled task started says so; a project with tasks links to them.
   const blog = page.locator("tr.ant-table-row-level-0", { hasText: "blog" });
+  await blog.getByText("2 scheduled").waitFor();
+  await blog.locator(".ant-table-row-expand-icon").click();
+  await page.locator("tr.ant-table-row-level-1", { hasText: "publish.mjs" }).getByText("blog publish").waitFor();
+  const backend = page.locator("tr.ant-table-row-level-0", { hasText: "backend" });
+  await backend.getByRole("button", { name: "1 scheduled" }).click();
+  assert.equal(await heading(), "Scheduled");
+  await expectCount(page.locator("tr.ant-table-row-level-0"), 1, "projects on Scheduled, filtered on backend");
+  assert.match(await page.locator("#filter").inputValue(), /acme-shop\\backend$/);
+  await page.locator("#filter").fill("");
+  await menu("Processes").click();
+  ok("a task's process is tagged; \"1 scheduled\" opens Scheduled on that project");
+
+  // Stop asks first, then the project is gone.
   await blog.getByRole("button", { name: /Stop the project/ }).click();
   const dialog = page.getByRole("dialog");
   await dialog.locator(".ant-modal-confirm-title", { hasText: 'Stop "blog"?' }).waitFor();
@@ -101,6 +114,28 @@ try {
   await page.getByText(/Redesigning the Dev Deck panel/).waitFor({ timeout: 5000 });
   ok("descriptions are opt-in; \"Describe\" writes one");
   await page.screenshot({ path: join(SHOTS, "sessions-1280-light.png") });
+
+  // Scheduled: tasks by project with their schedule and outcome; disabling and deleting ask first.
+  await menu("Scheduled").click();
+  const jobGroups = page.locator("tr.ant-table-row-level-0");
+  await expectCount(jobGroups, 3, "projects with scheduled tasks");
+  await page.getByText("Failed: the folder doesn't exist").waitFor();
+  await page.getByText(/^every day at 03:00/).waitFor();
+  await page.getByText(/^every 2 days at 12:00/).waitFor();
+  const jobRow = (name) => page.locator("tr.ant-table-row-level-1", { hasText: name });
+  await jobRow("blog links check").getByRole("button", { name: "Enable" }).click();
+  await jobRow("blog links check").getByRole("button", { name: "Disable" }).waitFor();
+  await jobRow("blog links check").getByRole("button", { name: "Disable" }).click();
+  await dialog.locator(".ant-modal-confirm-title", { hasText: 'Disable "blog links check"?' }).waitFor();
+  await dialog.getByRole("button", { name: "Disable" }).click();
+  await jobRow("blog links check").getByText("disabled", { exact: true }).waitFor();
+  await jobRow("Bank sync").getByRole("button", { name: "Delete" }).click();
+  await dialog.locator(".ant-modal-confirm-title", { hasText: 'Delete "Bank sync"?' }).waitFor();
+  await dialog.getByRole("button", { name: "Delete" }).click();
+  await page.getByText(/The copy is in .*deleted-tasks/).waitFor();
+  await expectCount(jobGroups, 2, "projects after deleting the only task of one");
+  ok("scheduled tasks by project; enable, disable and delete (with a copy) ask where they should");
+  await page.screenshot({ path: join(SHOTS, "jobs-1280-light.png") });
 
   // Cleanup: a verdict removes the proposal and the count.
   await menu("Cleanup").click();
@@ -137,7 +172,7 @@ try {
       await p.setViewportSize({ width, height: 720 });
       await p.goto(URL);
       await p.waitForSelector(".ant-menu");
-      for (const [i, name] of ["sessions", "processes", "cleanup"].entries()) {
+      for (const [i, name] of ["sessions", "processes", "jobs", "cleanup"].entries()) {
         await p.locator(".ant-menu-item").nth(i).click();
         await p.locator(".ant-table-row").first().waitFor();
         await p.mouse.move(width - 4, 716);
