@@ -1,7 +1,9 @@
 /**
  * Processes as a tree table: project → root → its children. Claude Code's MCP
  * servers sit under their own row, and groups made only of them get a table of
- * their own below ("Launched by Claude Code").
+ * their own below ("Launched by Claude Code"). Each project row carries its weight:
+ * a bar as long as its memory, the figure in proportion, its CPU over 24 hours;
+ * amber when it belongs to an idle session, or to one that is gone.
  */
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -9,12 +11,13 @@ import { Empty, Flex, Table, Tag, Tooltip, Typography, theme, type TableColumnsT
 import { CloseOutlined, CodeOutlined, FieldTimeOutlined, FolderOpenOutlined, PoweroffOutlined, ReloadOutlined } from "@ant-design/icons";
 import { IconButton, Mono, PortTag } from "../components/bits";
 import { useActions } from "../components/actions";
-import { chainOf, cpu, matches, mb, serversOf, since } from "../format";
+import { GainFigure, MemFigure, Sparkline, WeightBar, isDormant, useLeaving } from "../components/weight";
+import { chainOf, matches, mb, serversOf, since } from "../format";
 import { useDeck } from "../store";
-import type { Group, JobGroup, Proc } from "../types";
+import type { CpuHistory, Group, JobGroup, Proc, SessionRow } from "../types";
 
 type Row =
-  | { key: string; kind: "group"; g: Group; level: 0; children?: Row[] }
+  | { key: string; kind: "group"; g: Group; level: 0; children?: Row[]; leaving?: boolean }
   | { key: string; kind: "proc"; g: Group; p: Proc; level: number; children?: Row[] }
   | { key: string; kind: "mcp"; g: Group; count: number; level: 1; children: Row[] };
 
@@ -46,17 +49,38 @@ function rowsOf(g: Group): Row {
   return { key: groupKey(g), kind: "group", g, level: 0, children };
 }
 
+/**
+ * Forgotten: every process belongs to an idle session, or to one that is gone
+ * (an MCP server whose Claude Code closed). Servers started by hand have no session to tell.
+ */
+function isForgotten(g: Group, sessions: SessionRow[]): boolean {
+  const live = new Map(sessions.map((r) => [r.session.pid, isDormant(r.session.last_activity, r.session.run_time)]));
+  return g.procs.length > 0 && g.procs.every((p) =>
+    p.claude_pid != null ? live.get(p.claude_pid) ?? true : byClaude(p) && p.parent_alive === false);
+}
+
 /** Every key under a row that has children: expanding a project opens its whole tree. */
 function openKeys(row: Row): string[] {
   return row.children?.length ? [row.key, ...row.children.flatMap(openKeys)] : [];
 }
 
-function ProcessTable({ groups, narrow, jobs, showJobs }: { groups: Group[]; narrow: boolean; jobs: JobGroup[]; showJobs: (root: string) => void }) {
+function ProcessTable({ groups, narrow, jobs, showJobs, max, sessions, history }: {
+  groups: Group[]; narrow: boolean; jobs: JobGroup[]; showJobs: (root: string) => void;
+  /** The heaviest project on the page: the scale of the bars. */
+  max: number; sessions: SessionRow[]; history: CpuHistory;
+}) {
   const { token } = theme.useToken();
   const { t } = useTranslation();
   const { stop, restart, openFolder } = useActions();
   const [expanded, setExpanded] = useState<string[]>([]);
-  const data = groups.map(rowsOf);
+  /** What a stop gave back, measured, by project: its row shows it in place of its memory. */
+  const [gains, setGains] = useState<Record<string, number>>({});
+  const freedIn = (key: string) => (bytes: number) => {
+    setGains((g) => ({ ...g, [key]: bytes }));
+    setTimeout(() => setGains((g) => { const rest = { ...g }; delete rest[key]; return rest; }), 2000);
+  };
+  const data = useLeaving(groups, groupKey, 2000).map(({ item, leaving }): Row => ({ ...rowsOf(item), leaving } as Row));
+  const share = (g: Group) => Math.min(1, g.memory / max);
 
   const nameCell = (r: Row) => {
     // Leave room for the tree's indent and expand icon, so a deep row doesn't wrap.
@@ -66,6 +90,7 @@ function ProcessTable({ groups, narrow, jobs, showJobs }: { groups: Group[]; nar
       const nJobs = jobs.find((j) => sameRoot(r.g.root, j.root))?.jobs.length ?? 0;
       return (
         <span style={{ display: "inline-flex", flexDirection: "column", verticalAlign: "middle", maxWidth: room, minWidth: 0 }}>
+          <WeightBar share={share(r.g)} dormant={isForgotten(r.g, sessions)} drain={gains[groupKey(r.g)] != null} />
           <Flex gap={6} align="center" wrap>
             <Typography.Text strong>{r.g.name}</Typography.Text>
             <Mono type="secondary">{r.g.by_claude ? serversOf(mine) : chainOf(mine)}</Mono>
@@ -108,8 +133,24 @@ function ProcessTable({ groups, narrow, jobs, showJobs }: { groups: Group[]; nar
       },
     },
     ...(narrow ? [] : [
-      { title: t("processes.memory"), key: "mem", width: 84, align: "right" as const, render: (_: unknown, r: Row) => (r.kind === "mcp" ? null : mb(r.kind === "group" ? r.g.memory : r.p.memory)) },
-      { title: t("processes.cpu"), key: "cpu", width: 60, align: "right" as const, render: (_: unknown, r: Row) => (r.kind === "proc" ? cpu(r.p.cpu) : r.kind === "group" ? cpu(r.g.cpu) : null) },
+      {
+        title: t("processes.memory"), key: "mem", width: 112, align: "right" as const,
+        render: (_: unknown, r: Row) => {
+          if (r.kind === "mcp") return null;
+          if (r.kind === "proc") return mb(r.p.memory);
+          const gain = gains[groupKey(r.g)];
+          return gain != null
+            ? <GainFigure bytes={gain} size={Math.max(20, 14 + 10 * share(r.g))} />
+            : <MemFigure bytes={r.g.memory} share={share(r.g)} dormant={isForgotten(r.g, sessions)} />;
+        },
+      },
+      {
+        // The CPU over time, never the instant figure: what keeps working while nobody looks.
+        title: t("sessions.cpu24"), key: "cpu", width: 126,
+        render: (_: unknown, r: Row) => (r.kind === "group"
+          ? <Sparkline values={history[r.g.root ?? r.g.name]} dormant={isForgotten(r.g, sessions)} width={110} height={24} />
+          : null),
+      },
       {
         title: t("processes.uptime"), key: "up", width: 104, align: "right" as const,
         render: (_: unknown, r: Row) => (r.kind === "mcp" ? null : <Typography.Text type="secondary">{since(r.kind === "group" ? r.g.run_time : r.p.run_time)}</Typography.Text>),
@@ -121,6 +162,7 @@ function ProcessTable({ groups, narrow, jobs, showJobs }: { groups: Group[]; nar
         if (r.kind === "mcp") return null;
         if (r.kind === "group") {
           const g = r.g;
+          if (r.leaving) return null;
           const mine = g.by_claude ? g.procs : g.procs.filter((p) => !byClaude(p));
           return (
             <Flex justify="flex-end">
@@ -129,7 +171,7 @@ function ProcessTable({ groups, narrow, jobs, showJobs }: { groups: Group[]; nar
               <IconButton danger icon={PoweroffOutlined}
                 title={g.by_claude ? t("processes.stopMcp") : t("processes.stopProject")}
                 // Claude Code's MCP servers are kept aside: stopping them takes tools away from an open session.
-                onClick={() => stop(g.by_claude ? t("processes.stopMcpTitle", { name: g.name }) : t("processes.stopProjectTitle", { name: g.name }), mine)} />
+                onClick={() => stop(g.by_claude ? t("processes.stopMcpTitle", { name: g.name }) : t("processes.stopProjectTitle", { name: g.name }), mine, freedIn(groupKey(g)))} />
             </Flex>
           );
         }
@@ -140,7 +182,7 @@ function ProcessTable({ groups, narrow, jobs, showJobs }: { groups: Group[]; nar
             {p.depth === 0 && p.cwd && !byClaude(p)
               ? <IconButton title={t("processes.restartProc")} icon={ReloadOutlined} onClick={() => restart(r.g, p)} />
               : null}
-            <IconButton danger title={t("processes.stopProc", { pid: p.pid })} icon={CloseOutlined} onClick={() => stop(t("processes.stopProcTitle", { pid: p.pid }), [p])} />
+            <IconButton danger title={t("processes.stopProc", { pid: p.pid })} icon={CloseOutlined} onClick={() => stop(t("processes.stopProcTitle", { pid: p.pid }), [p], freedIn(groupKey(r.g)))} />
           </Flex>
         );
       },
@@ -150,6 +192,7 @@ function ProcessTable({ groups, narrow, jobs, showJobs }: { groups: Group[]; nar
   return (
     <Table<Row> size="small" pagination={false} columns={columns} dataSource={data} tableLayout="fixed"
       style={{ borderRadius: token.borderRadiusLG, overflow: "hidden" }}
+      rowClassName={(r) => (r.kind === "group" ? `dd-weighed${r.leaving ? " dd-row-leaving" : ""}` : "")}
       expandable={{
         expandedRowKeys: expanded,
         indentSize: 14,
@@ -170,19 +213,21 @@ export function ProcessesPage({ narrow, showJobs }: { narrow: boolean; showJobs:
   const mine = visible.filter((g) => !g.by_claude);
   const claude = visible.filter((g) => g.by_claude);
   const nClaude = claude.reduce((s, g) => s + g.procs.length, 0);
+  const max = Math.max(1, ...deck.groups.map((g) => g.memory));
+  const weigh = { max, sessions: deck.sessions, history: deck.history };
 
   if (deck.loaded && !visible.length) {
     return <Empty description={f ? t("processes.noMatch") : t("processes.none")} />;
   }
   return (
     <Flex vertical gap={20}>
-      {mine.length ? <ProcessTable groups={mine} narrow={narrow} jobs={deck.jobs} showJobs={showJobs} /> : null}
+      {mine.length ? <ProcessTable groups={mine} narrow={narrow} jobs={deck.jobs} showJobs={showJobs} {...weigh} /> : null}
       {claude.length ? (
         <section aria-labelledby="claude-title">
           <Typography.Text id="claude-title" type="secondary" style={{ display: "block", marginBottom: 8, fontSize: 12, fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase" }}>
             {t("processes.launchedByClaude", { servers: t("count.mcpServer", { count: nClaude }), folders: t("count.folder", { count: claude.length }) })}
           </Typography.Text>
-          <ProcessTable groups={claude} narrow={narrow} jobs={deck.jobs} showJobs={showJobs} />
+          <ProcessTable groups={claude} narrow={narrow} jobs={deck.jobs} showJobs={showJobs} {...weigh} />
         </section>
       ) : null}
     </Flex>

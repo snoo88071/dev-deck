@@ -74,7 +74,6 @@
     "name": "Name",
     "ports": "Ports",
     "memory": "Memory",
-    "cpu": "CPU",
     "uptime": "Uptime",
     "unknownFolder": "unknown folder",
     "claudeCode": "Claude Code",
@@ -134,7 +133,16 @@
     "description": "Description",
     "descriptionFresh": "written {{ago}}, up to date",
     "descriptionOld": "written {{ago}}, the session has moved on since",
-    "descriptionNone": "none yet"
+    "descriptionNone": "none yet",
+    "memory": "Memory",
+    "cpu24": "CPU, 24 h",
+    "close": "Close",
+    "closeTitle": "Close the {{project}} session?",
+    "closeWhat": "Claude Code (pid {{pid}}) with what runs under it ({{processes}}): {{memory}}.",
+    "closeResume": "The conversation stays: pick it up again with <code>claude --resume</code>.",
+    "closeFailed": "Session not closed: {{error}}",
+    "details": "Details",
+    "lastPrompt": "Last prompt"
   },
   "jobs": {
     "task": "Task",
@@ -237,5 +245,19 @@
       "task-gone": "Task pointing to a missing path",
       "task-failing": "Failing task"
     }
+  },
+  "weight": {
+    "freeOf": "GB free of {{total}}",
+    "freed": "{{amount}} freed",
+    "cpuBusy": "CPU busy all along lately",
+    "cpuRecent": "CPU used lately",
+    "cpuStill": "CPU at rest",
+    "cpuNone": "No CPU history yet",
+    "stripActive": "Sessions at work",
+    "stripDormant": "Idle sessions",
+    "stripProcesses": "Dev processes",
+    "stripSystem": "System and other apps",
+    "stripFree": "Available",
+    "stripLabel": "The computer's memory: {{parts}}"
   }
 }

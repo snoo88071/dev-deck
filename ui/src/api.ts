@@ -4,7 +4,7 @@
  */
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { demoCall } from "./demo";
-import type { DescribeSettings, Description, Group, JobGroup, SessionRow, ShadowRecord } from "./types";
+import type { CpuHistory, DescribeSettings, Description, Freed, Group, JobGroup, Memory, SessionRow, ShadowRecord } from "./types";
 
 export const DEMO = !isTauri();
 
@@ -14,7 +14,12 @@ function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
 
 export const api = {
   list: () => call<Group[]>("list"),
-  kill: (pids: number[]) => call<number>("kill", { pids }),
+  /** Resolves 2 s after the kill, with the RAM measured before and after. */
+  kill: (pids: number[]) => call<Freed>("kill", { pids }),
+  /** Closes a Claude Code session with its whole tree; resolves like `kill`. */
+  closeSession: (pid: number) => call<Freed>("close_session", { pid }),
+  memory: () => call<Memory>("memory"),
+  cpuHistory: () => call<CpuHistory>("cpu_history"),
   restart: (pid: number, title: string) => call<void>("restart", { pid, title }),
   openPort: (port: number) => call<void>("open_port", { port }),
   openFolder: (path: string, editor: boolean) => call<void>("open_folder", { path, editor }),

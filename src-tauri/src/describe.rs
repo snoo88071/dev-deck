@@ -263,6 +263,7 @@ mod tests {
     fn session() -> Session {
         Session {
             pid: 1,
+            key: String::new(),
             kind: Kind::Terminal,
             cwd: Some(r"C:\d\dev-deck".into()),
             project: Some("dev-deck".into()),

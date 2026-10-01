@@ -10,6 +10,11 @@ export function mb(bytes: number): string {
   return m >= 1024 ? `${num(m / 1024, 1)} GB` : `${num(m)} MB`;
 }
 
+/** Gigabytes as a bare number, one decimal: the big "free" figure. */
+export function gb(bytes: number): string {
+  return new Intl.NumberFormat(intlTag(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(bytes / 1073741824);
+}
+
 export function since(sec: number): string {
   if (sec < 60) return t("time.s", { s: Math.round(sec) });
   const m = Math.floor(sec / 60);

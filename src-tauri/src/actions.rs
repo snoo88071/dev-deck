@@ -6,6 +6,7 @@
 //! another process.
 
 use crate::procs::{self, RawProc};
+use serde::Serialize;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -97,6 +98,51 @@ pub fn kill(sys: &mut System, pids: &[u32]) -> Result<usize, String> {
     } else {
         Err(errors.join("; "))
     }
+}
+
+/// Closes a Claude Code session whole: claude.exe with its tree (MCP servers, the
+/// servers it started). The pid must still be a session, and not Dev Deck's.
+/// The transcript stays: `claude --resume` picks the session up again.
+pub fn close_session(sys: &mut System, pid: u32) -> Result<(), String> {
+    let all = procs::snapshot(sys);
+    if procs::own_tree(&all).contains(&pid) {
+        return Err("it is Dev Deck itself".into());
+    }
+    if !crate::sessions::roots(&all).iter().any(|(p, _)| p.pid == pid) {
+        return Err(format!("process {pid} is not a Claude Code session"));
+    }
+    kill_tree(pid)
+}
+
+/* ---------- what the machine has, and what an action gave back ---------- */
+
+#[derive(Clone, Debug, Serialize)]
+pub struct Memory {
+    pub total: u64,
+    pub available: u64,
+}
+
+pub fn memory() -> Memory {
+    let mut s = System::new();
+    s.refresh_memory();
+    Memory { total: s.total_memory(), available: s.available_memory() }
+}
+
+/// What closing gave back: the RAM available just before and a moment after.
+/// Measured, not added up from the processes' memory: that is what the panel shows.
+#[derive(Clone, Debug, Serialize)]
+pub struct Freed {
+    pub killed: usize,
+    pub before: u64,
+    pub after: u64,
+}
+
+/// How long Windows takes to hand the memory of the closed processes back.
+const SETTLE: std::time::Duration = std::time::Duration::from_secs(2);
+
+pub fn freed(killed: usize, before: u64) -> Freed {
+    std::thread::sleep(SETTLE);
+    Freed { killed, before, after: memory().available }
 }
 
 /// Restarts a process: reads command, folder and environment, kills it and

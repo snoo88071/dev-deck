@@ -12,7 +12,7 @@ import frFR from "antd/locale/fr_FR";
 import ptBR from "antd/locale/pt_BR";
 import { App } from "./App";
 import { DeckProvider } from "./store";
-import { useReducedMotion, useThemeMode } from "./theme";
+import { Look, useReducedMotion, useThemeMode } from "./theme";
 import { themeConfig } from "./palette";
 import { initLanguage } from "./i18n";
 
@@ -28,11 +28,13 @@ function Root() {
   }, [dark]);
   return (
     <ConfigProvider theme={themeConfig(dark, reducedMotion)} locale={ANTD_LOCALES[i18n.language as keyof typeof ANTD_LOCALES] ?? enUS}>
-      <AntApp style={{ height: "100%" }}>
-        <DeckProvider>
-          <App themeMode={mode} setThemeMode={setMode} />
-        </DeckProvider>
-      </AntApp>
+      <Look.Provider value={{ dark, reducedMotion }}>
+        <AntApp style={{ height: "100%" }}>
+          <DeckProvider>
+            <App themeMode={mode} setThemeMode={setMode} />
+          </DeckProvider>
+        </AntApp>
+      </Look.Provider>
     </ConfigProvider>
   );
 }

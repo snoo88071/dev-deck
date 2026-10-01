@@ -1,5 +1,5 @@
 /** Demo data for a plain browser: the same shapes Rust sends, and actions that change them. */
-import type { Group, Job, JobGroup, SessionRow, ShadowRecord } from "./types";
+import type { CpuHistory, Group, Job, JobGroup, SessionRow, ShadowRecord } from "./types";
 
 const now = () => Date.now() / 1000;
 const B = "C:\\Users\\dev\\code\\";
@@ -22,8 +22,8 @@ let groups: Group[] = [
     { pid: 22110, parent: 4, runtime: "node", tool: null, cmd: "node scripts/publish.mjs", cwd: B + "blog", memory: 40e6, cpu: 2.1, run_time: 40, ports: [], depth: 0, claude: false, launcher: "svchost", task: "blog publish" },
   ] },
   { root: B + "scraper", name: "scraper", ports: [], memory: 90e6, cpu: 0.4, run_time: 7200, by_claude: true, procs: [
-    { pid: 19600, parent: 5, runtime: "node", tool: "npx", cmd: "node npx-cli.js chrome-devtools-mcp@latest", cwd: B + "scraper", memory: 45e6, cpu: 0.2, run_time: 7200, ports: [], depth: 0, claude: false, launcher: "claude" },
-    { pid: 16836, parent: 19600, runtime: "node", tool: "chrome-devtools-mcp", cmd: "node chrome-devtools-mcp", cwd: B + "scraper", memory: 45e6, cpu: 0.2, run_time: 7199, ports: [], depth: 1, claude: false, launcher: "claude" },
+    { pid: 19600, parent: 5, runtime: "node", tool: "npx", cmd: "node npx-cli.js chrome-devtools-mcp@latest", cwd: B + "scraper", memory: 45e6, cpu: 0.2, run_time: 7200, ports: [], depth: 0, claude: false, launcher: "claude", claude_pid: 3856 },
+    { pid: 16836, parent: 19600, runtime: "node", tool: "chrome-devtools-mcp", cmd: "node chrome-devtools-mcp", cwd: B + "scraper", memory: 45e6, cpu: 0.2, run_time: 7199, ports: [], depth: 1, claude: false, launcher: "claude", claude_pid: 3856 },
   ] },
 ];
 
@@ -71,11 +71,42 @@ let jobs: JobGroup[] = [
   ] },
 ];
 
-const sessions: SessionRow[] = [
-  { session: { pid: 2372, kind: "terminal", cwd: B + "dev-deck", project: "dev-deck", run_time: 27000, session_id: "401e68e7-18bf-46a4-a2a7-9ed7a48f31b2", transcript: "C:\\Users\\dev\\.claude\\projects\\x\\401e68e7.jsonl", match: "time", title: "MCP in the repo", last_prompt: "ok, I was thinking of also adding the open Claude Code processes", last_activity: now() - 30, transcript_size: 1, memory: 250e6, children: 8, children_memory: 69e6 }, description: null, description_fresh: false },
-  { session: { pid: 16264, kind: "vscode", cwd: B + "acme-shop", project: "acme-shop", run_time: 170000, session_id: "7b621175-b63f-4ae5-9ffe-63482dd0bb92", transcript: "y.jsonl", match: "id", title: "Card-based onboarding", last_prompt: "yes, go ahead", last_activity: now() - 700, transcript_size: 1, memory: 200e6, children: 7, children_memory: 11e6 }, description: { text: "Testing the acme-shop onboarding cards against the real backend.", at: now() - 4000, fingerprint: "a" }, description_fresh: false },
-  { session: { pid: 3856, kind: "vscode", cwd: B + "scraper", project: "scraper", run_time: 175000, session_id: "0da7952e", transcript: "z.jsonl", match: "uncertain", title: "Scraper with Playwright", last_prompt: "hi! in this repo we use Playwright", last_activity: now() - 127000, transcript_size: 1, memory: 180e6, children: 7, children_memory: 11e6 }, description: { text: "The scraper runs headless against the staging site; retries are next.", at: now() - 90000, fingerprint: "b" }, description_fresh: true },
+const GB = 1024 ** 3;
+const MB = 1024 ** 2;
+
+let sessions: SessionRow[] = [
+  { session: { pid: 2372, key: "2372@1", kind: "terminal", cwd: B + "dev-deck", project: "dev-deck", run_time: 27000, session_id: "401e68e7-18bf-46a4-a2a7-9ed7a48f31b2", transcript: "C:\\Users\\dev\\.claude\\projects\\x\\401e68e7.jsonl", match: "time", title: "MCP in the repo", last_prompt: "ok, I was thinking of also adding the open Claude Code processes", last_activity: now() - 30, transcript_size: 1, memory: 820 * MB, children: 5, children_memory: 640 * MB }, description: null, description_fresh: false },
+  { session: { pid: 16264, key: "16264@1", kind: "vscode", cwd: B + "acme-shop", project: "acme-shop", run_time: 170000, session_id: "7b621175-b63f-4ae5-9ffe-63482dd0bb92", transcript: "y.jsonl", match: "id", title: "Card-based onboarding", last_prompt: "yes, go ahead", last_activity: now() - 700, transcript_size: 1, memory: 550 * MB, children: 3, children_memory: 310 * MB }, description: { text: "Testing the acme-shop onboarding cards against the real backend.", at: now() - 4000, fingerprint: "a" }, description_fresh: false },
+  { session: { pid: 3856, key: "3856@1", kind: "vscode", cwd: B + "scraper", project: "scraper", run_time: 175000, session_id: "0da7952e", transcript: "z.jsonl", match: "uncertain", title: "Scraper with Playwright", last_prompt: "hi! in this repo we use Playwright", last_activity: now() - 68000, transcript_size: 1, memory: 940 * MB, children: 14, children_memory: 1.62 * GB }, description: { text: "The scraper runs headless against the staging site; retries are next.", at: now() - 90000, fingerprint: "b" }, description_fresh: true },
+  { session: { pid: 5120, key: "5120@1", kind: "terminal", cwd: B + "blog", project: "blog", run_time: 190000, session_id: "9c2d41aa-0b7e-4c55-8d1e-5e0f6f3b2a10", transcript: "w.jsonl", match: "id", title: "Hugo preview", last_prompt: "leave the preview running, I'll check it tonight", last_activity: now() - 172000, transcript_size: 1, memory: 710 * MB, children: 8, children_memory: 660 * MB }, description: { text: "Draft of the redesign post, with the local Hugo preview.", at: now() - 170000, fingerprint: "c" }, description_fresh: true },
 ];
+
+/** The machine: 16 GB, 4.9 of them taken by Windows and the other apps; the rest is what the demo holds. */
+const TOTAL = 16 * GB;
+const SYSTEM = 4.9 * GB;
+function available(): number {
+  const held = sessions.reduce((a, r) => a + r.session.memory + r.session.children_memory, 0)
+    + groups.reduce((a, g) => a + g.memory, 0);
+  return Math.max(0, TOTAL - SYSTEM - held);
+}
+
+/** The history's slices: busy lately, busy all along (the forgotten one that still works), still. */
+function history(): CpuHistory {
+  const wave = (seed: number, f: (i: number, r: number) => number) =>
+    Array.from({ length: 48 }, (_, i) => {
+      const r = Math.abs(Math.sin((i + 1) * 12.9898 + seed * 78.233) * 43758.5453) % 1;
+      return i < 6 ? null : Math.round(f(i, r) * 100) / 100;
+    });
+  const recent = (seed: number, from: number) => wave(seed, (i, r) => (i >= from ? 0.5 + r * 3.5 : r > 0.9 ? r * 0.8 : 0.02));
+  const out: CpuHistory = {
+    "2372@1": recent(1, 40),
+    "16264@1": recent(2, 44),
+    "3856@1": wave(3, (i, r) => (i < 12 ? 0.5 + r * 3 : 1.1 + r * 0.9)),
+    "5120@1": wave(4, () => 0),
+  };
+  groups.forEach((g, n) => { out[g.root ?? g.name] = recent(10 + n, 30 + n * 4); });
+  return out;
+}
 
 const shadow: ShadowRecord[] = [
   { type: "proposal", id: "demo0001", at: new Date(Date.now() - 600000).toISOString(), source: "claude", session: 3844, projects: [],
@@ -92,11 +123,24 @@ export function demoCall(cmd: string, args: Record<string, unknown> = {}): Promi
       return later(copy(groups));
     case "kill": {
       const pids = args.pids as number[];
+      const before = available();
       groups = groups
-        .map((g) => ({ ...g, procs: g.procs.filter((p) => !pids.includes(p.pid)) }))
+        .map((g) => {
+          const procs = g.procs.filter((p) => !pids.includes(p.pid));
+          return { ...g, procs, memory: procs.reduce((a, p) => a + p.memory, 0) };
+        })
         .filter((g) => g.procs.length);
-      return later(pids.length);
+      return later({ killed: pids.length, before, after: available() }, 2000);
     }
+    case "close_session": {
+      const before = available();
+      sessions = sessions.filter((r) => r.session.pid !== args.pid);
+      return later({ killed: 1, before, after: available() }, 2000);
+    }
+    case "memory":
+      return later({ total: TOTAL, available: available() });
+    case "cpu_history":
+      return later(history());
     case "sessions":
       return later(copy(sessions));
     case "describe_settings":

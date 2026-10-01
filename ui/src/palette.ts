@@ -22,6 +22,50 @@ const shared = {
   fontFamilyCode: MONO,
 };
 
+/**
+ * The colors of weight (direction A): what the processes hold, drawn in proportion.
+ * Amber is the one accent and means one thing, "still here, nobody working":
+ * green is what is free. `npm run contrast` measures the text ones.
+ */
+export interface Weight {
+  /** Strip segments. */
+  active: string;
+  dormant: string;
+  /** Development processes outside the sessions. */
+  process: string;
+  system: string;
+  free: string;
+  freeEdge: string;
+  /** The bar behind a row. */
+  barActive: string;
+  barDormant: string;
+  /** Text. */
+  dormantText: string;
+  freeText: string;
+  /** The CPU line. */
+  line: string;
+  lineStill: string;
+  /** "Close" on an idle session: the one filled button of the row. */
+  closeBg: string;
+  closeFg: string;
+}
+
+export function weightColors(dark: boolean): Weight {
+  return dark
+    ? {
+        active: "#8a93a5", dormant: "#d08a34", process: "#555e70", system: "#2e3440", free: "#1f4a33", freeEdge: "#2f6b4a",
+        barActive: "rgba(232,234,238,.055)", barDormant: "rgba(240,166,74,.14)",
+        dormantText: "#f0a64a", freeText: GREEN_ON_DARK, line: "#b7bdc8", lineStill: "#3a4150",
+        closeBg: "#f0a64a", closeFg: "#1a1206",
+      }
+    : {
+        active: "#3b4454", dormant: "#b86a0e", process: "#8a93a3", system: "#d3d8e0", free: "#cfe9d8", freeEdge: "#9ccfae",
+        barActive: "rgba(59,68,84,.055)", barDormant: "rgba(184,106,14,.13)",
+        dormantText: "#9a5708", freeText: GREEN, line: "#4a5363", lineStill: "#c3c8d0",
+        closeBg: "#9a5708", closeFg: "#ffffff",
+      };
+}
+
 export function themeConfig(dark: boolean, reducedMotion = false): ThemeConfig {
   return dark
     ? {

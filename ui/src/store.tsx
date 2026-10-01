@@ -1,11 +1,12 @@
 /**
- * The panel's state: processes every 3 s, scheduled tasks every 10 s and sessions every 15 s, only while the
- * window is visible (closing it hides it to the tray), plus the shadow file and
- * the description setting. Pages read it through `useDeck()`.
+ * The panel's state: processes and the machine's RAM every 3 s, scheduled tasks every 10 s,
+ * sessions and the CPU history every 15 s, only while the window is visible (closing it
+ * hides it to the tray), plus the shadow file and the description setting. Pages read it
+ * through `useDeck()`.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api } from "./api";
-import type { DescribeSettings, Group, JobGroup, ProposalRecord, SessionRow, ShadowRecord } from "./types";
+import type { CpuHistory, DescribeSettings, Freed, Group, JobGroup, Memory, ProposalRecord, SessionRow, ShadowRecord } from "./types";
 
 const PROCESSES_MS = 3000;
 const SESSIONS_MS = 15000;
@@ -20,6 +21,10 @@ interface Deck {
   shadow: ShadowRecord[];
   pending: ProposalRecord[];
   describe: DescribeSettings;
+  memory: Memory | null;
+  history: CpuHistory;
+  /** After a closing: the RAM measured 2 s later, and the pids to drop from the lists until the next read. */
+  applyFreed: (f: Freed, gone: number[]) => void;
   loaded: boolean;
   filter: string;
   setFilter: (f: string) => void;
@@ -55,6 +60,8 @@ export function DeckProvider({ children }: { children: ReactNode }) {
   const [jobsLoaded, setJobsLoaded] = useState(false);
   const [shadow, setShadow] = useState<ShadowRecord[]>([]);
   const [describe, setDescribe] = useState<DescribeSettings>({ enabled: false, forced: false });
+  const [memory, setMemory] = useState<Memory | null>(null);
+  const [history, setHistory] = useState<CpuHistory>({});
   const [loaded, setLoaded] = useState(false);
   const [filter, setFilterRaw] = useState("");
   const visible = useVisible();
@@ -64,7 +71,9 @@ export function DeckProvider({ children }: { children: ReactNode }) {
     if (busy.current) return;
     busy.current = true;
     try {
-      setGroups(await api.list());
+      const [g, m] = await Promise.all([api.list(), api.memory().catch(() => null)]);
+      setGroups(g);
+      if (m) setMemory(m);
       setLoaded(true);
     } catch {
       // A failed read keeps the last list; the next tick tries again.
@@ -74,6 +83,13 @@ export function DeckProvider({ children }: { children: ReactNode }) {
   }, []);
   const loadSessions = useCallback(async () => {
     try { setSessions(await api.sessions()); } catch { setSessions([]); }
+    try { setHistory(await api.cpuHistory()); } catch { /* keep the last one */ }
+  }, []);
+  const applyFreed = useCallback((f: Freed, gone: number[]) => {
+    setMemory((m) => (m ? { ...m, available: f.after } : m));
+    // Out of the lists now, so the strip and the rows move with the measured figure.
+    setSessions((xs) => xs.filter((r) => !gone.includes(r.session.pid)));
+    setGroups((gs) => gs.map((g) => ({ ...g, procs: g.procs.filter((p) => !gone.includes(p.pid)) })).filter((g) => g.procs.length));
   }, []);
   const loadJobs = useCallback(async () => {
     // A failed read keeps the last list, as for processes.
@@ -103,10 +119,10 @@ export function DeckProvider({ children }: { children: ReactNode }) {
   }, [visible, refresh, loadSessions, loadJobs]);
 
   const value = useMemo<Deck>(() => ({
-    groups, sessions, jobs, jobsLoaded, shadow, pending: pendingOf(shadow), describe, loaded,
+    groups, sessions, jobs, jobsLoaded, shadow, pending: pendingOf(shadow), describe, memory, history, applyFreed, loaded,
     filter, setFilter: (f: string) => setFilterRaw(f.trim().toLowerCase()),
     refresh, loadSessions, loadJobs, loadShadow, loadDescribe,
-  }), [groups, sessions, jobs, jobsLoaded, shadow, describe, loaded, filter, refresh, loadSessions, loadJobs, loadShadow, loadDescribe]);
+  }), [groups, sessions, jobs, jobsLoaded, shadow, describe, memory, history, applyFreed, loaded, filter, refresh, loadSessions, loadJobs, loadShadow, loadDescribe]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

@@ -6,3 +6,30 @@
 /* Reduced motion is handled by antd's `motion` token (see palette.ts), not here:
    forcing `animation: none` leaves antd waiting for an animationend that never comes,
    and a closed dialog stays on top of the page. */
+
+/* Direction A's own motion (components/weight.tsx). Only these classes, never a blanket
+   rule (above): with reduced motion they stop, and nothing waits for their end. */
+@keyframes dd-pulse { 50% { opacity: 0.2; } }
+.dd-pulse { animation: dd-pulse 1.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .dd-pulse { animation: none; }
+}
+
+/* A row that folds away (a closed session): the grid row goes from its height to 0. */
+.dd-fold { display: grid; grid-template-rows: 1fr; transition: grid-template-rows .5s ease, opacity .35s ease; }
+.dd-fold.gone { grid-template-rows: 0fr; opacity: 0; }
+/* Closed with its gain showing: the row folds once the gain has been seen. */
+.dd-fold.gone.late { transition-delay: 1.3s; }
+.dd-fold > * { min-height: 0; overflow: hidden; }
+.dd-close-idle:not(:disabled):hover { filter: brightness(1.12); }
+/* A weighed table row (Processes): its bar spans the whole row, behind the cells. */
+.dd-weighed { position: relative; z-index: 0; }
+.dd-weighed > td:first-child { position: static !important; }
+/* A stopped project's row: its gain shows, then it fades. */
+.dd-row-leaving { opacity: 0; transition: opacity .4s ease 1.3s; }
+@media (prefers-reduced-motion: reduce) {
+  .dd-fold { transition: none; }
+  /* No folding or fading: the closed row keeps showing its gain until it goes. */
+  .dd-fold.gone.late { grid-template-rows: 1fr; opacity: 1; }
+  .dd-row-leaving { opacity: 1; transition: none; }
+}

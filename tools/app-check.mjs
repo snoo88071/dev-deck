@@ -5,7 +5,7 @@
  * disable, enable and delete a real scheduled task.
  *
  * It only touches what it starts itself: two tiny node servers in a temp folder,
- * a temp shadow file (DEVDECK_SHADOW), and two scheduled tasks under \Dev Deck\
+ * a temp shadow file (DEVDECK_SHADOW), a temp CPU history (DEVDECK_CPU), and two scheduled tasks under \Dev Deck\
  * (the deleted one leaves its copy in a temp folder, DEVDECK_DELETED_TASKS). The app window
  * shows for a few seconds, and so does the `cmd` window a restart opens. Windows only, needs a desktop:
  * not part of CI.
@@ -83,6 +83,7 @@ try {
       // Its own WebView2 data: no clash with a Dev Deck already open, and your stored settings stay untouched.
       WEBVIEW2_USER_DATA_FOLDER: join(tmp, "webview"),
       DEVDECK_SHADOW: shadowFile,
+      DEVDECK_CPU: join(tmp, "cpu.jsonl"),
       DEVDECK_DELETED_TASKS: deletedDir,
       DEVDECK_LANG: "en",
       DEVDECK_DESCRIBE: "0",
@@ -118,6 +119,8 @@ try {
   const rowOf = (port) => page.locator("tr", { hasText: `server.js ${port}` });
   await rowOf(portA).waitFor();
   ok(`a real project appears, its servers listed (:${portA}, :${portB})`);
+  await page.getByRole("img", { name: /^The computer's memory: .*Available \d/ }).waitFor();
+  ok("the memory strip reads the computer's RAM");
 
   // Restart A: a new process, same command and folder, listening on the same port.
   await rowOf(portA).getByRole("button", { name: /^Restart/ }).click();

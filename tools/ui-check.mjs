@@ -115,6 +115,16 @@ try {
   ok("descriptions are opt-in; \"Describe\" writes one");
   await page.screenshot({ path: join(SHOTS, "sessions-1280-light.png") });
 
+  // Closing a session: a confirmation, then (RAM measured) the row folds and the gain shows.
+  const idle = page.locator(".dd-session", { hasText: "blog" });
+  await idle.getByRole("button", { name: /^Close/ }).click();
+  const closeDialog = page.locator(".ant-modal-confirm");
+  await closeDialog.getByText(/claude --resume/).waitFor();
+  await closeDialog.getByRole("button", { name: "Close", exact: true }).click();
+  await page.getByText("+1.3 GB").waitFor({ timeout: 5000 });
+  await idle.waitFor({ state: "detached", timeout: 5000 });
+  ok("closing a session asks first, then its row folds and the measured gain shows");
+
   // Scheduled: tasks by project with their schedule and outcome; disabling and deleting ask first.
   await menu("Scheduled").click();
   const jobGroups = page.locator("tr.ant-table-row-level-0");
@@ -174,7 +184,7 @@ try {
       await p.waitForSelector(".ant-menu");
       for (const [i, name] of ["sessions", "processes", "jobs", "cleanup"].entries()) {
         await p.locator(".ant-menu-item").nth(i).click();
-        await p.locator(".ant-table-row").first().waitFor();
+        await p.locator(".ant-table-row, .dd-session").first().waitFor();
         await p.mouse.move(width - 4, 716);
         await p.waitForTimeout(200);
         const scroll = await p.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);

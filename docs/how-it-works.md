@@ -38,7 +38,22 @@ terminal, from VS Code, and background jobs. The daemon and `claude -p` runs are
 - **Refresh**: while descriptions are on and the app is running, every 5 minutes it redoes (one
   at a time) the ones whose transcript changed and whose description is older than 30 minutes.
   "Describe" redoes one right away.
-- **Read only**: sessions can't be closed from Dev Deck and never enter cleanup.
+- **Closing**: "Close" ends a whole session, Claude Code with its process tree, after a
+  confirmation that says what it holds. Rust checks again that the pid is still a session.
+  The transcript stays, so `claude --resume` picks it up. Sessions never enter cleanup.
+
+## Weight: memory and CPU
+
+- **The strip** on Sessions and Processes: the computer's RAM split into sessions at work,
+  idle sessions (no activity for 2 hours), dev processes outside the sessions, the system and
+  other apps, and what's available. "Available" is Windows' own figure, the one Task Manager
+  shows; a session counts with the development processes under it.
+- **What closing gave back** is measured, not added up: the RAM available just before and
+  2 seconds after. The row that was closed shows it, then goes.
+- **CPU history**: once a minute, while Dev Deck runs (in the tray too), the average CPU of the
+  last minute for every session and project, as a share of the whole machine. Kept 24 hours in
+  `~/.dev-deck/cpu.jsonl` (`DEVDECK_CPU` moves it), so restarting Dev Deck doesn't lose it.
+  The rows draw it as a line; a gap is a time Dev Deck wasn't running.
 
 From a terminal: `devdeck sessions` and `devdeck describe <id or pid> [--force]`.
 

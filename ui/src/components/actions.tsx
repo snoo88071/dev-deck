@@ -30,7 +30,8 @@ export function useActions() {
   const deck = useDeck();
   const claudeWarn = t("actions.claudeWarn");
 
-  const stop = (title: string, procs: Proc[]) =>
+  /** `onFreed`: the measured gain, for the row that shows it. */
+  const stop = (title: string, procs: Proc[], onFreed?: (bytes: number) => void) =>
     modal.confirm({
       title,
       content: <Lines lines={procs.map(procLine)} warn={procs.some((p) => p.claude) ? claudeWarn : null} />,
@@ -39,7 +40,10 @@ export function useActions() {
       cancelText: t("common.cancel"),
       onOk: async () => {
         try {
-          await api.kill(procs.map((p) => p.pid));
+          const pids = procs.map((p) => p.pid);
+          const f = await api.kill(pids);
+          onFreed?.(Math.max(0, f.after - f.before));
+          deck.applyFreed(f, pids);
         } catch (e) {
           message.error(t("actions.notStopped", { error: String(e) }));
         }

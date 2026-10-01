@@ -6,7 +6,8 @@
 //! the transcript in its folder that was created after the process started and
 //! written last. From the transcript: the title, the last prompt, the last activity.
 //!
-//! Sessions never enter cleanup: here we only look.
+//! Sessions never enter cleanup. The panel closes one only when asked, whole:
+//! Claude Code with its tree (`actions::close_session`).
 
 use crate::procs::{runtime_of, RawProc};
 use serde::Serialize;
@@ -214,6 +215,8 @@ pub fn read_tail(path: &Path, bytes: u64) -> Tail {
 #[derive(Clone, Debug, Serialize)]
 pub struct Session {
     pub pid: u32,
+    /// `pid@start`: names the session in the CPU history (history.rs) even if the pid is reused.
+    pub key: String,
     pub kind: Kind,
     pub cwd: Option<String>,
     /// The working folder's name.
@@ -249,26 +252,58 @@ fn is_claude(p: &RawProc) -> bool {
     n == "claude.exe" || n == "claude"
 }
 
-/// The open sessions, from a read of the processes.
-pub fn list(all: &[RawProc], root: &Path) -> Vec<Session> {
-    let now = secs(SystemTime::now());
+/// The key a session goes by in the CPU history.
+pub fn key_of(p: &RawProc) -> String {
+    format!("{}@{}", p.pid, p.start)
+}
+
+/// The claude.exe that are sessions (not the daemon, the pty host or `claude -p`), with what their command says.
+pub fn roots(all: &[RawProc]) -> Vec<(&RawProc, Args)> {
     let by_pid: HashMap<u32, &RawProc> = all.iter().map(|p| (p.pid, p)).collect();
     let pty_host = |pid: Option<u32>| {
         pid.and_then(|x| by_pid.get(&x)).is_some_and(|q| is_claude(q) && q.cmd.iter().any(|a| a == "--bg-pty-host"))
     };
+    all.iter()
+        .filter(|p| is_claude(p))
+        .map(|p| (p, parse_args(&p.cmd, pty_host(p.parent))))
+        .filter(|(_, a)| a.kind.is_some())
+        .collect()
+}
+
+/// The development processes under a session (MCP servers, servers started by Claude).
+pub fn descendants(all: &[RawProc], pid: u32) -> Vec<&RawProc> {
+    let by_pid: HashMap<u32, &RawProc> = all.iter().map(|p| (p.pid, p)).collect();
+    all.iter()
+        .filter(|q| runtime_of(&q.name).is_some())
+        .filter(|q| {
+            let mut seen = HashSet::new();
+            let mut cur = q.parent;
+            while let Some(x) = cur {
+                if x == pid {
+                    return true;
+                }
+                if !seen.insert(x) {
+                    return false;
+                }
+                cur = by_pid.get(&x).and_then(|r| r.parent);
+            }
+            false
+        })
+        .collect()
+}
+
+/// The open sessions, from a read of the processes.
+pub fn list(all: &[RawProc], root: &Path) -> Vec<Session> {
+    let now = secs(SystemTime::now());
 
     struct Found<'a> {
         p: &'a RawProc,
         kind: Kind,
         id: Option<String>,
     }
-    let found: Vec<Found> = all
-        .iter()
-        .filter(|p| is_claude(p))
-        .filter_map(|p| {
-            let a = parse_args(&p.cmd, pty_host(p.parent));
-            a.kind.map(|kind| Found { p, kind, id: a.session_id })
-        })
+    let found: Vec<Found> = roots(all)
+        .into_iter()
+        .filter_map(|(p, a)| a.kind.map(|kind| Found { p, kind, id: a.session_id }))
         .collect();
 
     // The transcript folders, found ignoring case (c--Users and C--Users).
@@ -301,36 +336,16 @@ pub fn list(all: &[RawProc], root: &Path) -> Vec<Session> {
     }
     let matched = match_transcripts(&to_match, &files);
 
-    // The development processes under each session (MCP servers, servers started by Claude).
-    let under = |pid: u32| -> Vec<&RawProc> {
-        all.iter()
-            .filter(|q| runtime_of(&q.name).is_some())
-            .filter(|q| {
-                let mut seen = HashSet::new();
-                let mut cur = q.parent;
-                while let Some(x) = cur {
-                    if x == pid {
-                        return true;
-                    }
-                    if !seen.insert(x) {
-                        return false;
-                    }
-                    cur = by_pid.get(&x).and_then(|r| r.parent);
-                }
-                false
-            })
-            .collect()
-    };
-
     let mut out: Vec<Session> = found
         .iter()
         .map(|f| {
             let (path, how) = matched.get(&f.p.pid).cloned().unwrap_or((None, Match::None));
             let meta = path.as_ref().and_then(|p| std::fs::metadata(p).ok());
             let tail = path.as_ref().map(|p| read_tail(p, 512 * 1024)).unwrap_or_default();
-            let kids = under(f.p.pid);
+            let kids = descendants(all, f.p.pid);
             Session {
                 pid: f.p.pid,
+                key: key_of(f.p),
                 kind: f.kind.clone(),
                 cwd: f.p.cwd.as_ref().map(|c| c.to_string_lossy().trim_end_matches(['\\', '/']).to_string()),
                 project: f.p.cwd.as_ref().and_then(|c| c.components().last()).map(|c| c.as_os_str().to_string_lossy().to_string()),

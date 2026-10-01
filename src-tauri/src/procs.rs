@@ -20,6 +20,8 @@ pub struct RawProc {
     pub memory: u64,
     pub cpu: f32,
     pub run_time: u64,
+    /// When it started (Unix seconds): with the pid, it names the process even after the pid is reused.
+    pub start: u64,
     pub ports: Vec<u16>,
 }
 
@@ -449,6 +451,7 @@ pub fn snapshot(sys: &mut System) -> Vec<RawProc> {
             memory: p.memory(),
             cpu: p.cpu_usage(),
             run_time: p.run_time(),
+            start: p.start_time(),
             ports: ports.get(&p.pid().as_u32()).cloned().unwrap_or_default(),
         })
         .collect()
@@ -489,6 +492,7 @@ mod tests {
             memory: 100,
             cpu: 1.0,
             run_time: 1000 - pid as u64,
+            start: 0,
             ports: vec![],
         }
     }

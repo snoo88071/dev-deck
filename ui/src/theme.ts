@@ -1,4 +1,8 @@
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
+
+/** The theme and the motion preference, for the few pieces that draw their own colors (weight.tsx). */
+export const Look = createContext({ dark: false, reducedMotion: false });
+export const useLook = () => useContext(Look);
 
 /** Follows Windows by default; a choice in the menu pins it, and is remembered. */
 export type ThemeMode = "system" | "light" | "dark";

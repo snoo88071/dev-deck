@@ -18,6 +18,7 @@ import { SessionsPage } from "./pages/Sessions";
 import { ProcessesPage } from "./pages/Processes";
 import { CleanupPage } from "./pages/Cleanup";
 import { JobsPage } from "./pages/Jobs";
+import { FreeFigure, MemoryStrip } from "./components/weight";
 import { broken } from "./format";
 
 type Page = "sessions" | "processes" | "jobs" | "cleanup";
@@ -136,9 +137,11 @@ export function App({ themeMode, setThemeMode }: { themeMode: ThemeMode; setThem
   };
   const [title, summary, placeholder] = headers[page];
   const pad = narrow ? 12 : 20;
+  // Where the weight shows: the computer's memory, and what the sessions and processes hold of it.
+  const weighed = (page === "sessions" || page === "processes") && deck.memory != null;
 
   let body: ReactNode;
-  if (page === "sessions") body = <SessionsPage narrow={narrow} />;
+  if (page === "sessions") body = <SessionsPage narrow={narrow} compact={!narrow && width < 1200} />;
   // A project's "N scheduled" opens the Scheduled page filtered on that project.
   else if (page === "processes") body = <ProcessesPage narrow={narrow} showJobs={(root) => { setPage("jobs"); onFilter(root); }} />;
   else if (page === "jobs") body = <JobsPage narrow={narrow} />;
@@ -177,12 +180,21 @@ export function App({ themeMode, setThemeMode }: { themeMode: ThemeMode; setThem
                 {summary}{DEMO ? ` · ${t("header.demo")}` : ""}
               </Typography.Text>
             </div>
+            <Flex align="center" gap={24} style={narrow ? { width: "100%" } : undefined}>
+            {weighed && !narrow ? <FreeFigure available={deck.memory!.available} total={deck.memory!.total} /> : null}
             <Input ref={filterRef} id="filter" allowClear placeholder={placeholder} aria-label={placeholder}
               value={filterText} onChange={(e) => onFilter(e.target.value)}
               prefix={<SearchOutlined aria-hidden style={{ color: token.colorTextTertiary }} />}
               suffix={filterText ? null : <kbd aria-hidden="true" style={{ fontFamily: MONO, fontSize: 11, padding: "0 5px", border: `1px solid ${token.colorBorder}`, borderRadius: 4, color: token.colorTextTertiary }}>/</kbd>}
               style={{ width: narrow ? "100%" : 240 }} />
+            </Flex>
           </Flex>
+          {weighed ? (
+            <div style={{ marginTop: 14 }}>
+              {narrow ? <div style={{ marginBottom: 10 }}><FreeFigure available={deck.memory!.available} total={deck.memory!.total} /></div> : null}
+              <MemoryStrip sessions={deck.sessions} groups={deck.groups} total={deck.memory!.total} available={deck.memory!.available} />
+            </div>
+          ) : null}
         </header>
         <Layout.Content style={{ padding: `0 ${pad}px ${pad}px`, overflow: "auto" }}>
           {body}

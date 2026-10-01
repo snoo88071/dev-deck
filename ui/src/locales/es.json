@@ -74,7 +74,6 @@
     "name": "Nombre",
     "ports": "Puertos",
     "memory": "Memoria",
-    "cpu": "CPU",
     "uptime": "Tiempo activo",
     "unknownFolder": "carpeta desconocida",
     "claudeCode": "Claude Code",
@@ -134,7 +133,16 @@
     "description": "Descripción",
     "descriptionFresh": "escrita {{ago}}, al día",
     "descriptionOld": "escrita {{ago}}, la sesión ha avanzado desde entonces",
-    "descriptionNone": "aún ninguna"
+    "descriptionNone": "aún ninguna",
+    "memory": "Memoria",
+    "cpu24": "CPU, 24 h",
+    "close": "Cerrar",
+    "closeTitle": "¿Cerrar la sesión {{project}}?",
+    "closeWhat": "Claude Code (pid {{pid}}) con lo que corre debajo ({{processes}}): {{memory}}.",
+    "closeResume": "La conversación se queda: la retomas con <code>claude --resume</code>.",
+    "closeFailed": "Sesión no cerrada: {{error}}",
+    "details": "Detalles",
+    "lastPrompt": "Último prompt"
   },
   "jobs": {
     "task": "Tarea",
@@ -237,5 +245,19 @@
       "task-gone": "Tarea con una ruta que ya no existe",
       "task-failing": "Tarea que falla"
     }
+  },
+  "weight": {
+    "freeOf": "GB libres de {{total}}",
+    "freed": "{{amount}} liberados",
+    "cpuBusy": "CPU ocupada todo el tiempo en las últimas horas",
+    "cpuRecent": "CPU usada hace poco",
+    "cpuStill": "CPU en reposo",
+    "cpuNone": "Todavía no hay historial de CPU",
+    "stripActive": "Sesiones trabajando",
+    "stripDormant": "Sesiones paradas",
+    "stripProcesses": "Procesos de desarrollo",
+    "stripSystem": "Sistema y otras apps",
+    "stripFree": "Disponible",
+    "stripLabel": "La memoria del PC: {{parts}}"
   }
 }

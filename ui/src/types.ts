@@ -37,6 +37,8 @@ export interface Group {
 
 export interface Session {
   pid: number;
+  /** `pid@start`: its key in the CPU history. */
+  key: string;
   kind: "terminal" | "vscode" | "background";
   cwd: string | null;
   project: string | null;
@@ -52,6 +54,26 @@ export interface Session {
   children: number;
   children_memory: number;
 }
+
+/** The machine's RAM, in bytes. */
+export interface Memory {
+  total: number;
+  available: number;
+}
+
+/** What closing gave back: the RAM available just before and 2 s after (measured, bytes). */
+export interface Freed {
+  killed: number;
+  before: number;
+  after: number;
+}
+
+/**
+ * The last 24 hours of CPU, by session key or group key (its folder, else its name):
+ * 48 half-hour slices, oldest first, as a share of the whole machine (100 = every core).
+ * null = no sample (Dev Deck was off, or the process didn't exist yet).
+ */
+export type CpuHistory = Record<string, (number | null)[]>;
 
 export interface Description {
   text: string;

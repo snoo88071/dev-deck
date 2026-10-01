@@ -4,6 +4,7 @@ pub mod actions;
 pub mod procs;
 pub mod sessions;
 pub mod describe;
+pub mod history;
 pub mod locale;
 pub mod tasks;
 
@@ -30,9 +31,35 @@ fn list(state: State<Sys>) -> Vec<procs::Group> {
     groups
 }
 
+/// The CPU history, sampled once a minute on a thread of its own (history.rs).
+struct History(history::Shared);
+
+/// Kills, then measures what came back (2 s later: async, so the panel doesn't freeze).
+#[tauri::command(async)]
+fn kill(state: State<Sys>, pids: Vec<u32>) -> Result<actions::Freed, String> {
+    let before = actions::memory().available;
+    let killed = actions::kill(&mut sys(&state), &pids)?;
+    Ok(actions::freed(killed, before))
+}
+
+/// Closes a Claude Code session with its whole tree, then measures what came back.
+#[tauri::command(async)]
+fn close_session(state: State<Sys>, pid: u32) -> Result<actions::Freed, String> {
+    let before = actions::memory().available;
+    actions::close_session(&mut sys(&state), pid)?;
+    Ok(actions::freed(1, before))
+}
+
+/// The machine's RAM: total and available.
 #[tauri::command]
-fn kill(state: State<Sys>, pids: Vec<u32>) -> Result<usize, String> {
-    actions::kill(&mut sys(&state), &pids)
+fn memory() -> actions::Memory {
+    actions::memory()
+}
+
+/// The last 24 hours of CPU by session and by group, in half-hour slices.
+#[tauri::command]
+fn cpu_history(state: State<History>) -> std::collections::HashMap<String, Vec<Option<f32>>> {
+    history::read(&state.0)
 }
 
 #[tauri::command]
@@ -170,7 +197,8 @@ fn toggle(app: &AppHandle) {
 pub fn run() {
     tauri::Builder::default()
         .manage(Sys(Mutex::new(System::new())))
-        .invoke_handler(tauri::generate_handler![list, kill, restart, open_port, open_folder, shadow_read, shadow_append, sessions, describe_session, describe_settings, set_describe, app_language, jobs, job_act, job_delete])
+        .manage(History(history::start()))
+        .invoke_handler(tauri::generate_handler![list, kill, close_session, memory, cpu_history, restart, open_port, open_folder, shadow_read, shadow_append, sessions, describe_session, describe_settings, set_describe, app_language, jobs, job_act, job_delete])
         .setup(|app| {
             auto_describe();
             tasks::watch_engines();

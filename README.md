@@ -15,13 +15,18 @@ Task Manager shows twelve `node.exe`. Dev Deck shows `acme-shop/backend · npm �
 - **One row per project**, found by walking up from each process's working directory to the
   nearest `package.json`, `Cargo.toml`, `pyproject.toml`, `go.mod`, `pom.xml` or `.git`.
 - **Every dev runtime**: node, bun, deno, python, uv, cargo, java, dotnet, go, ruby, php, with
-  the tool (npm, tsx, vite, uvicorn…), memory, CPU, uptime and listening ports.
+  the tool (npm, tsx, vite, uvicorn…), memory, the CPU of the last 24 hours, uptime and
+  listening ports.
+- **Weight you can see**: a strip with the computer's RAM (sessions at work, idle sessions, dev
+  processes, the rest, what's available), and behind every row a bar as long as the memory it
+  holds. Close something and the row shows what came back, measured.
 - **Process trees stay together**: `npm start` → `tsx` → `node`, even across the `cmd.exe`
   npm spawns on Windows.
 - **Stop** a process tree or a whole project, **restart** a tree with the same command, folder
   and environment, **open** `localhost:PORT`, the folder, or VS Code.
-- **Claude Code sessions**: what's open, in which folder, the last prompt, and (opt-in) a
-  one-line description of what each one is working on.
+- **Claude Code sessions**: what's open, in which folder, how much it holds with what runs
+  under it, and (opt-in) a one-line description of what each one is working on. Close a whole
+  session (the conversation stays: `claude --resume`).
 - **Scheduled tasks by project**: the Windows Task Scheduler's tasks that run something in
   a project (a nightly backup, a daily scrape), with what they run, when, and how the last run
   went. Run now, disable, or delete (a copy of the definition is kept). A process a task
