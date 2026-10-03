@@ -6,7 +6,8 @@
     "jobs": "Scheduled",
     "cleanup": "Cleanup",
     "expand": "Expand the sidebar",
-    "fold": "Fold the sidebar"
+    "fold": "Fold the sidebar",
+    "history": "History"
   },
   "theme": {
     "label": "Theme",
@@ -28,7 +29,8 @@
     "filterSessions": "Filter sessions",
     "filterProcesses": "Filter projects, commands, ports",
     "filterJobs": "Filter tasks, scripts, projects",
-    "filterCleanup": "Filter proposals"
+    "filterCleanup": "Filter proposals",
+    "filterHistory": "Search titles, prompts, projects"
   },
   "count": {
     "project_one": "{{count}} project",
@@ -42,7 +44,9 @@
     "mcpServer_one": "{{count}} MCP server",
     "mcpServer_other": "{{count}} MCP servers",
     "newProposal_one": "{{count}} new proposal",
-    "newProposal_other": "{{count}} new proposals"
+    "newProposal_other": "{{count}} new proposals",
+    "session_one": "{{count}} session",
+    "session_other": "{{count}} sessions"
   },
   "time": {
     "s": "{{s}} s",
@@ -259,5 +263,20 @@
     "stripSystem": "System and other apps",
     "stripFree": "Available",
     "stripLabel": "The computer's memory: {{parts}}"
+  },
+  "history": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "allProjects": "All projects",
+    "project": "Project",
+    "open": "open",
+    "lasted": "lasted {{time}}",
+    "untitled": "Untitled",
+    "none": "No sessions yet: they show up once you open Claude Code from a terminal or VS Code.",
+    "noMatch": "No session matches the search.",
+    "resume": "Reopen",
+    "resumeHint": "Opens a terminal in its folder with claude --resume",
+    "resumed": "Opened",
+    "resumeFailed": "Not reopened: {{error}}"
   }
 }

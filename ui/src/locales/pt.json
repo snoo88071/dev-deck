@@ -6,7 +6,8 @@
     "jobs": "Agendadas",
     "cleanup": "Limpeza",
     "expand": "Expandir a barra lateral",
-    "fold": "Recolher a barra lateral"
+    "fold": "Recolher a barra lateral",
+    "history": "Histórico"
   },
   "theme": {
     "label": "Tema",
@@ -28,7 +29,8 @@
     "filterSessions": "Filtrar sessões",
     "filterProcesses": "Filtrar projetos, comandos, portas",
     "filterJobs": "Filtrar tarefas, scripts, projetos",
-    "filterCleanup": "Filtrar propostas"
+    "filterCleanup": "Filtrar propostas",
+    "filterHistory": "Buscar títulos, prompts, projetos"
   },
   "count": {
     "project_one": "{{count}} projeto",
@@ -42,7 +44,9 @@
     "mcpServer_one": "{{count}} servidor MCP",
     "mcpServer_other": "{{count}} servidores MCP",
     "newProposal_one": "{{count}} proposta nova",
-    "newProposal_other": "{{count}} propostas novas"
+    "newProposal_other": "{{count}} propostas novas",
+    "session_one": "{{count}} sessão",
+    "session_other": "{{count}} sessões"
   },
   "time": {
     "s": "{{s}} s",
@@ -259,5 +263,20 @@
     "stripSystem": "Sistema e outros apps",
     "stripFree": "Disponível",
     "stripLabel": "A memória do PC: {{parts}}"
+  },
+  "history": {
+    "today": "Hoje",
+    "yesterday": "Ontem",
+    "allProjects": "Todos os projetos",
+    "project": "Projeto",
+    "open": "aberta",
+    "lasted": "durou {{time}}",
+    "untitled": "Sem título",
+    "none": "Ainda não há sessões: elas aparecem quando você abre o Claude Code num terminal ou no VS Code.",
+    "noMatch": "Nenhuma sessão corresponde à busca.",
+    "resume": "Reabrir",
+    "resumeHint": "Abre um terminal na pasta dela com claude --resume",
+    "resumed": "Aberta",
+    "resumeFailed": "Não reaberta: {{error}}"
   }
 }

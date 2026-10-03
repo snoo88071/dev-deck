@@ -42,6 +42,24 @@ terminal, from VS Code, and background jobs. The daemon and `claude -p` runs are
   confirmation that says what it holds. Rust checks again that the pid is still a session.
   The transcript stays, so `claude --resume` picks it up. Sessions never enter cleanup.
 
+## History
+
+The History page lists every Claude Code session a person opened, open or closed, from the
+transcripts in `~/.claude/projects/`.
+
+- **Which ones**: those started from a terminal or from VS Code (`entrypoint` `cli` or
+  `claude-vscode` in the transcript). Automated runs (`claude -p`, the SDK: most of the files)
+  and the sub-agents' transcripts are left out.
+- **What a row says**: the project, terminal or VS Code, the git branch, the description if
+  there is one, otherwise the title Claude Code wrote, the last prompt, when and how long.
+- **Index**: reading every transcript takes about half a second the first time; what was read is
+  kept in `~/.dev-deck/history.json` (`DEVDECK_HISTORY` moves it), tied to each file's size and
+  last write, so only new or changed transcripts are read again.
+- **Reopen**: Rust looks the session up again, checks its folder still exists, and opens
+  Windows Terminal there (a cmd window if it isn't installed) with `claude --resume <id>`.
+- **Descriptions**: the same opt-in as the Sessions page and the same cache. "Describe" writes
+  one; closing a session from Dev Deck writes its own, when descriptions are on.
+
 ## Weight: memory and CPU
 
 - **The strip** on Sessions and Processes: the computer's RAM split into sessions at work,

@@ -75,6 +75,31 @@ export interface Freed {
  */
 export type CpuHistory = Record<string, (number | null)[]>;
 
+/** A session a person opened, open or closed, from its transcript (src-tauri/src/archive.rs). */
+export interface Past {
+  session_id: string;
+  transcript: string;
+  kind: "terminal" | "vscode";
+  cwd: string | null;
+  project: string | null;
+  branch: string | null;
+  /** The first message's time (ISO 8601). */
+  started: string | null;
+  /** When the transcript was last written (Unix seconds). */
+  ended: number;
+  title: string | null;
+  first_prompt: string | null;
+  last_prompt: string | null;
+  size: number;
+}
+
+/** A history row: the session and its cached description, as `sessions` sends them. */
+export interface PastRow {
+  past: Past;
+  description: Description | null;
+  description_fresh: boolean;
+}
+
 export interface Description {
   text: string;
   at: number;

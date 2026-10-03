@@ -125,6 +125,26 @@ try {
   await idle.waitFor({ state: "detached", timeout: 5000 });
   ok("closing a session asks first, then its row folds and the measured gain shows");
 
+  // History: found by what it was about; reopened from its row, which also says why when it can't be.
+  await menu("History").click();
+  const pastRows = page.locator(".dd-past");
+  await pastRows.first().waitFor();
+  await page.locator("#filter").fill("csv");
+  await expectCount(pastRows, 1, "history rows matching \"csv\"");
+  await page.locator("#filter").fill("");
+  await page.getByRole("combobox", { name: "Project" }).click();
+  await page.keyboard.type("blog");
+  await page.keyboard.press("Enter");
+  await expectCount(pastRows, 2, "history rows of the blog project");
+  await page.locator(".ant-select-clear").click();
+  const stripe = pastRows.filter({ hasText: "payments" });
+  await stripe.getByRole("button", { name: /^Reopen/ }).click();
+  await stripe.getByRole("button", { name: /^Opened/ }).waitFor();
+  const gone = pastRows.filter({ hasText: "csv-v2" });
+  await gone.getByRole("button", { name: /^Reopen/ }).click();
+  await gone.getByRole("alert").getByText(/is gone/).waitFor();
+  ok("history: search, a project, Reopen in its row, and why it couldn't when it can't");
+
   // Scheduled: tasks by project with their schedule and outcome; disabling and deleting ask first.
   await menu("Scheduled").click();
   const jobGroups = page.locator("tr.ant-table-row-level-0");
@@ -182,9 +202,9 @@ try {
       await p.setViewportSize({ width, height: 720 });
       await p.goto(URL);
       await p.waitForSelector(".ant-menu");
-      for (const [i, name] of ["sessions", "processes", "jobs", "cleanup"].entries()) {
+      for (const [i, name] of ["sessions", "history", "processes", "jobs", "cleanup"].entries()) {
         await p.locator(".ant-menu-item").nth(i).click();
-        await p.locator(".ant-table-row, .dd-session").first().waitFor();
+        await p.locator(".ant-table-row, .dd-session, .dd-past").first().waitFor();
         await p.mouse.move(width - 4, 716);
         await p.waitForTimeout(200);
         const scroll = await p.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);

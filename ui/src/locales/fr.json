@@ -6,7 +6,8 @@
     "jobs": "Planifiées",
     "cleanup": "Nettoyage",
     "expand": "Déplier la barre latérale",
-    "fold": "Replier la barre latérale"
+    "fold": "Replier la barre latérale",
+    "history": "Historique"
   },
   "theme": {
     "label": "Thème",
@@ -28,7 +29,8 @@
     "filterSessions": "Filtrer les sessions",
     "filterProcesses": "Filtrer projets, commandes, ports",
     "filterJobs": "Filtrer tâches, scripts, projets",
-    "filterCleanup": "Filtrer les propositions"
+    "filterCleanup": "Filtrer les propositions",
+    "filterHistory": "Chercher titres, prompts, projets"
   },
   "count": {
     "project_one": "{{count}} projet",
@@ -42,7 +44,9 @@
     "mcpServer_one": "{{count}} serveur MCP",
     "mcpServer_other": "{{count}} serveurs MCP",
     "newProposal_one": "{{count}} nouvelle proposition",
-    "newProposal_other": "{{count}} nouvelles propositions"
+    "newProposal_other": "{{count}} nouvelles propositions",
+    "session_one": "{{count}} session",
+    "session_other": "{{count}} sessions"
   },
   "time": {
     "s": "{{s}} s",
@@ -259,5 +263,20 @@
     "stripSystem": "Système et autres apps",
     "stripFree": "Disponible",
     "stripLabel": "La mémoire du PC : {{parts}}"
+  },
+  "history": {
+    "today": "Aujourd’hui",
+    "yesterday": "Hier",
+    "allProjects": "Tous les projets",
+    "project": "Projet",
+    "open": "ouverte",
+    "lasted": "a duré {{time}}",
+    "untitled": "Sans titre",
+    "none": "Pas encore de session : elles apparaissent quand tu ouvres Claude Code depuis un terminal ou VS Code.",
+    "noMatch": "Aucune session ne correspond à la recherche.",
+    "resume": "Rouvrir",
+    "resumeHint": "Ouvre un terminal dans son dossier avec claude --resume",
+    "resumed": "Ouverte",
+    "resumeFailed": "Pas rouverte : {{error}}"
   }
 }

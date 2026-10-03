@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Badge, Button, Dropdown, Flex, Input, Layout, Menu, Tooltip, Typography, theme, type InputRef } from "antd";
 import {
-  AppstoreOutlined, ClearOutlined, DesktopOutlined, FieldTimeOutlined, MenuFoldOutlined, MenuUnfoldOutlined,
+  AppstoreOutlined, ClearOutlined, DesktopOutlined, FieldTimeOutlined, FileSearchOutlined, MenuFoldOutlined, MenuUnfoldOutlined,
   MoonOutlined, RobotOutlined, SearchOutlined, SunOutlined,
 } from "@ant-design/icons";
 import { DEMO } from "./api";
@@ -18,11 +18,12 @@ import { SessionsPage } from "./pages/Sessions";
 import { ProcessesPage } from "./pages/Processes";
 import { CleanupPage } from "./pages/Cleanup";
 import { JobsPage } from "./pages/Jobs";
+import { HistoryPage } from "./pages/History";
 import { FreeFigure, MemoryStrip } from "./components/weight";
 import { broken } from "./format";
 
-type Page = "sessions" | "processes" | "jobs" | "cleanup";
-const PAGES: Page[] = ["sessions", "processes", "jobs", "cleanup"];
+type Page = "sessions" | "history" | "processes" | "jobs" | "cleanup";
+const PAGES: Page[] = ["sessions", "history", "processes", "jobs", "cleanup"];
 const PAGE_KEY = "devdeck.page";
 const SIDER_KEY = "devdeck.sider";
 /** Below this window width the sidebar starts folded to icons. */
@@ -107,6 +108,7 @@ export function App({ themeMode, setThemeMode }: { themeMode: ThemeMode; setThem
   );
   const items = [
     { key: "sessions", icon: <RobotOutlined aria-hidden />, label: label(t("nav.sessions"), deck.sessions.length) },
+    { key: "history", icon: <FileSearchOutlined aria-hidden />, label: label(t("nav.history"), deck.past.length) },
     { key: "processes", icon: <AppstoreOutlined aria-hidden />, label: label(t("nav.processes"), mine.length) },
     { key: "jobs", icon: <FieldTimeOutlined aria-hidden />, label: label(t("nav.jobs"), allJobs.length) },
     {
@@ -118,6 +120,11 @@ export function App({ themeMode, setThemeMode }: { themeMode: ThemeMode; setThem
 
   const headers: Record<Page, [string, string, string]> = {
     sessions: [t("nav.sessions"), `${t("header.open", { count: deck.sessions.length })} · ${t("header.recent", { count: recent })}`, t("header.filterSessions")],
+    history: [
+      t("nav.history"),
+      `${t("count.session", { count: deck.past.length })} · ${t("count.project", { count: new Set(deck.past.map((r) => r.past.project)).size })}`,
+      t("header.filterHistory"),
+    ],
     processes: [
       t("nav.processes"),
       `${t("count.project", { count: mine.length })} · ${t("count.process", { count: nProcs })} · ${mb(memory)}`,
@@ -142,6 +149,7 @@ export function App({ themeMode, setThemeMode }: { themeMode: ThemeMode; setThem
 
   let body: ReactNode;
   if (page === "sessions") body = <SessionsPage narrow={narrow} compact={!narrow && width < 1200} />;
+  else if (page === "history") body = <HistoryPage narrow={narrow} />;
   // A project's "N scheduled" opens the Scheduled page filtered on that project.
   else if (page === "processes") body = <ProcessesPage narrow={narrow} showJobs={(root) => { setPage("jobs"); onFilter(root); }} />;
   else if (page === "jobs") body = <JobsPage narrow={narrow} />;

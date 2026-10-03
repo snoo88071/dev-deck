@@ -1,5 +1,5 @@
 /** Demo data for a plain browser: the same shapes Rust sends, and actions that change them. */
-import type { CpuHistory, Group, Job, JobGroup, SessionRow, ShadowRecord } from "./types";
+import type { CpuHistory, Description, Group, Job, JobGroup, Past, PastRow, SessionRow, ShadowRecord } from "./types";
 
 const now = () => Date.now() / 1000;
 const B = "C:\\Users\\dev\\code\\";
@@ -81,6 +81,28 @@ let sessions: SessionRow[] = [
   { session: { pid: 5120, key: "5120@1", kind: "terminal", cwd: B + "blog", project: "blog", run_time: 190000, session_id: "9c2d41aa-0b7e-4c55-8d1e-5e0f6f3b2a10", transcript: "w.jsonl", match: "id", title: "Hugo preview", last_prompt: "leave the preview running, I'll check it tonight", last_activity: now() - 172000, transcript_size: 1, memory: 710 * MB, children: 8, children_memory: 660 * MB }, description: { text: "Draft of the redesign post, with the local Hugo preview.", at: now() - 170000, fingerprint: "c" }, description_fresh: true },
 ];
 
+/** Sessions opened over the last days: the open ones (same ids as above) and closed ones. */
+const H = 3600;
+const ago = (sec: number) => new Date(Date.now() - sec * 1000).toISOString();
+const past = (id: string, project: string, kind: Past["kind"], startAgo: number, endAgo: number, p: Partial<Past>): Past => ({
+  session_id: id, transcript: `C:\\Users\\dev\\.claude\\projects\\x\\${id}.jsonl`, kind, cwd: B + project, project,
+  branch: "main", started: ago(startAgo), ended: now() - endAgo, title: null, first_prompt: null, last_prompt: null, size: 1, ...p,
+});
+const pastSessions: Past[] = [
+  past("401e68e7-18bf-46a4-a2a7-9ed7a48f31b2", "dev-deck", "terminal", 7.5 * H, 30, { title: "MCP in the repo", first_prompt: "let's put the MCP server in this repo", last_prompt: "ok, I was thinking of also adding the open Claude Code processes" }),
+  past("7b621175-b63f-4ae5-9ffe-63482dd0bb92", "acme-shop", "vscode", 47 * H, 700, { title: "Card-based onboarding", branch: "onboarding", first_prompt: "the onboarding should be cards, not a long form", last_prompt: "yes, go ahead" }),
+  past("c3a1e0d2-5b6f-4a7e-9d10-2f3b4c5d6e7f", "dev-deck", "vscode", 9 * H, 6 * H, { title: "CSP blocks antd styles in the installed app", branch: "fix-csp", first_prompt: "the installed app shows no theme, npm run dev is fine", last_prompt: "merge it and rebuild the installer" }),
+  past("e8f7a6b5-c4d3-4e2f-8a1b-0c9d8e7f6a5b", "acme-shop", "terminal", 30 * H, 26 * H, { title: "Stripe webhooks retry", branch: "payments", first_prompt: "webhooks fail when the backend restarts", last_prompt: "add the idempotency key and a test" }),
+  past("0da7952e-1111-4222-8333-944455556666", "scraper", "vscode", 49 * H, 19 * H, { title: "Scraper with Playwright", first_prompt: "hi! in this repo we use Playwright", last_prompt: "retries next, but not today" }),
+  past("9c2d41aa-0b7e-4c55-8d1e-5e0f6f3b2a10", "blog", "terminal", 53 * H, 47 * H, { title: "Hugo preview", first_prompt: "draft a post about the redesign", last_prompt: "leave the preview running, I'll check it tonight" }),
+  past("5a6b7c8d-9e0f-4a1b-8c2d-3e4f5a6b7c8d", "money", "terminal", 4 * 24 * H, 4 * 24 * H - 2 * H, { title: "Bank sync parser for the new CSV", branch: "csv-v2", first_prompt: "the bank changed its CSV export again", last_prompt: "good, schedule it every morning at 7" }),
+  past("1f2e3d4c-5b6a-4978-8a9b-0c1d2e3f4a5b", "blog", "vscode", 6 * 24 * H, 6 * 24 * H - H, { title: "Links checker", first_prompt: "write a script that checks every link in the posts", last_prompt: "run it every two days" }),
+];
+
+const pastDescriptions: Record<string, Description> = {
+  "e8f7a6b5-c4d3-4e2f-8a1b-0c9d8e7f6a5b": { text: "Webhooks now retry with an idempotency key; a test covers a restart mid-delivery.", at: now() - 26 * H, fingerprint: "e" },
+};
+
 /** The machine: 16 GB, 4.9 of them taken by Windows and the other apps; the rest is what the demo holds. */
 const TOTAL = 16 * GB;
 const SYSTEM = 4.9 * GB;
@@ -139,6 +161,20 @@ export function demoCall(cmd: string, args: Record<string, unknown> = {}): Promi
     }
     case "memory":
       return later({ total: TOTAL, available: available() });
+    case "history":
+      return later(copy(pastSessions).sort((a, b) => b.ended - a.ended).map((p): PastRow => ({
+        past: p, description: pastDescriptions[p.session_id] ?? null, description_fresh: !!pastDescriptions[p.session_id],
+      })));
+    case "describe_past": {
+      const d: Description = { text: "Fixed the CSP so the installed app keeps antd's styles; merged, installer rebuilt.", at: now(), fingerprint: "p" };
+      pastDescriptions[args.id as string] = d;
+      return later(d, 800);
+    }
+    case "resume": {
+      const p = pastSessions.find((x) => x.session_id === args.id);
+      // One demo session points to a folder that was deleted: the error shows where.
+      return p?.project === "money" ? Promise.reject(`the folder ${p.cwd} is gone`) : later(null, 300);
+    }
     case "cpu_history":
       return later(history());
     case "sessions":

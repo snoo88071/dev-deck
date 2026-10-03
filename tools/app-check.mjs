@@ -5,7 +5,9 @@
  * disable, enable and delete a real scheduled task.
  *
  * It only touches what it starts itself: two tiny node servers in a temp folder,
- * a temp shadow file (DEVDECK_SHADOW), a temp CPU history (DEVDECK_CPU), and two scheduled tasks under \Dev Deck\
+ * a temp shadow file (DEVDECK_SHADOW), a temp CPU history (DEVDECK_CPU), a transcript of its own in
+ * a temp Claude Code folder (DEVDECK_CLAUDE_PROJECTS, DEVDECK_HISTORY) reopened with a fake `claude`
+ * (DEVDECK_CLAUDE) that only notes how it was called, and two scheduled tasks under \Dev Deck\
  * (the deleted one leaves its copy in a temp folder, DEVDECK_DELETED_TASKS). The app window
  * shows for a few seconds, and so does the `cmd` window a restart opens. Windows only, needs a desktop:
  * not part of CI.
@@ -75,6 +77,17 @@ try {
     category: "idle", pid: b.pid, pids: [b.pid], cmd: bProc.cmd, root: project, ports: [portB], evidence: ["app-check"],
   }) + "\n");
 
+  // A session's transcript, as Claude Code writes one from a terminal; and a `claude` that notes its call and leaves.
+  const SESSION = "d0d0d0d0-1234-4abc-8def-0123456789ab";
+  const projectsDir = join(tmp, "projects", "devdeck-check-app");
+  execFileSync("cmd", ["/c", "mkdir", projectsDir]);
+  writeFileSync(join(projectsDir, `${SESSION}.jsonl`), [
+    { type: "user", entrypoint: "cli", sessionId: SESSION, cwd: project, gitBranch: "main", timestamp: new Date(Date.now() - 3600_000).toISOString(), message: { role: "user", content: "app-check: a session to reopen" } },
+    { type: "ai-title", aiTitle: "devdeck app-check session", sessionId: SESSION },
+  ].map((x) => JSON.stringify(x)).join("\n") + "\n");
+  const resumedFile = join(tmp, "resumed.txt");
+  writeFileSync(join(tmp, "fake-claude.cmd"), `@echo %CD% %*> "${resumedFile}"\r\n@exit\r\n`);
+
   app = spawn(APP, [], {
     stdio: "ignore",
     env: {
@@ -84,6 +97,9 @@ try {
       WEBVIEW2_USER_DATA_FOLDER: join(tmp, "webview"),
       DEVDECK_SHADOW: shadowFile,
       DEVDECK_CPU: join(tmp, "cpu.jsonl"),
+      DEVDECK_CLAUDE_PROJECTS: join(tmp, "projects"),
+      DEVDECK_HISTORY: join(tmp, "history.json"),
+      DEVDECK_CLAUDE: join(tmp, "fake-claude.cmd"),
       DEVDECK_DELETED_TASKS: deletedDir,
       DEVDECK_LANG: "en",
       DEVDECK_DESCRIBE: "0",
@@ -111,6 +127,16 @@ try {
   assert.equal(await page.locator("#describe-switch").isDisabled(), true);
   ok("language and the forced description setting come from Rust");
 
+  // History: the transcript shows up; Reopen opens a terminal in its folder with `claude --resume <id>`.
+  await page.getByRole("menuitem", { name: /^History/ }).click();
+  const past = page.locator(".dd-past", { hasText: "devdeck app-check session" });
+  await past.waitFor({ timeout: 15_000 });
+  await past.getByRole("button", { name: /^Reopen/ }).click();
+  const resumed = await until("the terminal ran claude --resume", () => existsSync(resumedFile) && readFileSync(resumedFile, "utf8").trim());
+  assert.ok(resumed.toLowerCase().startsWith(project.toLowerCase()), `ran in ${resumed}`);
+  assert.ok(resumed.endsWith(`--resume ${SESSION}`), resumed);
+  ok("history lists a real transcript; Reopen runs claude --resume <id> in its folder");
+
   // The project shows up, with its ports.
   await page.getByRole("menuitem", { name: /^Processes/ }).click();
   const group = page.locator("tr.ant-table-row-level-0", { hasText: "devdeck-check-app" });
@@ -121,6 +147,7 @@ try {
   ok(`a real project appears, its servers listed (:${portA}, :${portB})`);
   await page.getByRole("img", { name: /^The computer's memory: .*Available \d/ }).waitFor();
   ok("the memory strip reads the computer's RAM");
+
 
   // Restart A: a new process, same command and folder, listening on the same port.
   await rowOf(portA).getByRole("button", { name: /^Restart/ }).click();

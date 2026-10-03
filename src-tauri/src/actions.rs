@@ -114,6 +114,55 @@ pub fn close_session(sys: &mut System, pid: u32) -> Result<(), String> {
     kill_tree(pid)
 }
 
+/// Reopens a past session where it ran: a terminal in its folder with `claude --resume <id>`.
+/// Rust looks the session up again: the id must be one, with a folder that still exists.
+/// `DEVDECK_CLAUDE` replaces `claude` (app-check, which must not start a real one).
+pub fn resume(id: &str) -> Result<(), String> {
+    if !crate::sessions::is_uuid(id) {
+        return Err(format!("{id} is not a session id"));
+    }
+    let p = crate::archive::find(id).ok_or_else(|| format!("no transcript for session {id}"))?;
+    let cwd = p.cwd.ok_or("the transcript doesn't say which folder it ran in")?;
+    if !Path::new(&cwd).is_dir() {
+        return Err(format!("the folder {cwd} is gone"));
+    }
+    let claude = std::env::var("DEVDECK_CLAUDE").unwrap_or_else(|_| "claude".into());
+    let title = format!("{} (Claude Code)", p.project.unwrap_or_default());
+    open_terminal(Path::new(&cwd), &[claude, "--resume".into(), id.to_string()], &title)
+}
+
+/// Windows Terminal's command, when it is installed (its alias sits in WindowsApps).
+#[cfg(windows)]
+fn windows_terminal() -> Option<PathBuf> {
+    let p = PathBuf::from(std::env::var("LOCALAPPDATA").ok()?).join("Microsoft").join("WindowsApps").join("wt.exe");
+    p.exists().then_some(p)
+}
+
+/// A terminal in `cwd` running `cmd`, in Windows Terminal if there is one, else in a cmd window.
+/// `cmd /k`: when the command ends, the window stays, at a prompt in that folder.
+#[cfg(windows)]
+fn open_terminal(cwd: &Path, cmd: &[String], title: &str) -> Result<(), String> {
+    if let Some(wt) = windows_terminal() {
+        return Command::new(wt)
+            .args(["-w", "new", "new-tab", "--title", title, "-d"])
+            .arg(cwd)
+            .args(["cmd", "/k"])
+            .args(cmd)
+            .spawn()
+            .map(|_| ())
+            .map_err(|e| e.to_string());
+    }
+    let mut c = Command::new("cmd");
+    c.current_dir(cwd).creation_flags(CREATE_NO_WINDOW);
+    c.raw_arg(format!("/c start \"{}\" cmd /k \"{}\"", title.replace('"', "'"), procs::join_cmd(cmd)));
+    c.spawn().map(|_| ()).map_err(|e| e.to_string())
+}
+
+#[cfg(not(windows))]
+fn open_terminal(_cwd: &Path, _cmd: &[String], _title: &str) -> Result<(), String> {
+    Err("opening a terminal is done on Windows only".into())
+}
+
 /* ---------- what the machine has, and what an action gave back ---------- */
 
 #[derive(Clone, Debug, Serialize)]
@@ -339,6 +388,11 @@ pub fn shadow_append(record: &serde_json::Value) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn resume_wants_a_session_id() {
+        assert!(resume("not-an-id & calc").unwrap_err().contains("not a session id"));
+    }
 
     #[test]
     fn migrates_the_old_shadow_file_once() {

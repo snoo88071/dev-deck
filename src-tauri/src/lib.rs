@@ -1,6 +1,7 @@
 //! Dev Deck: a tray window with the machine's development processes.
 
 pub mod actions;
+pub mod archive;
 pub mod procs;
 pub mod sessions;
 pub mod describe;
@@ -48,6 +49,35 @@ fn close_session(state: State<Sys>, pid: u32) -> Result<actions::Freed, String> 
     let before = actions::memory().available;
     actions::close_session(&mut sys(&state), pid)?;
     Ok(actions::freed(1, before))
+}
+
+/// Every Claude Code session a person opened, open or closed, most recent first (archive.rs),
+/// with its cached description (and whether it is still fresh), as `sessions` does.
+#[tauri::command(async)]
+fn history() -> Vec<serde_json::Value> {
+    let cache = describe::read_cache();
+    archive::list(&sessions::projects_root(), &archive::index_path())
+        .into_iter()
+        .map(|p| {
+            let s = archive::as_session(&p);
+            let d = cache.get(&p.session_id).cloned();
+            let fresh = d.as_ref().is_some_and(|d| Some(&d.fingerprint) == describe::fingerprint(&s).as_ref());
+            serde_json::json!({ "past": p, "description": d, "description_fresh": fresh })
+        })
+        .collect()
+}
+
+/// Describes a session of the history. `force`: even if the cached one is still fresh.
+#[tauri::command(async)]
+fn describe_past(id: String, force: bool) -> Result<describe::Description, String> {
+    let p = archive::find(&id).ok_or("no transcript for that session")?;
+    describe::describe(&archive::as_session(&p), force)
+}
+
+/// Reopens a past session in a terminal, in its folder (`claude --resume <id>`).
+#[tauri::command(async)]
+fn resume(id: String) -> Result<(), String> {
+    actions::resume(&id)
 }
 
 /// The machine's RAM: total and available.
@@ -198,7 +228,7 @@ pub fn run() {
     tauri::Builder::default()
         .manage(Sys(Mutex::new(System::new())))
         .manage(History(history::start()))
-        .invoke_handler(tauri::generate_handler![list, kill, close_session, memory, cpu_history, restart, open_port, open_folder, shadow_read, shadow_append, sessions, describe_session, describe_settings, set_describe, app_language, jobs, job_act, job_delete])
+        .invoke_handler(tauri::generate_handler![list, kill, close_session, history, describe_past, resume, memory, cpu_history, restart, open_port, open_folder, shadow_read, shadow_append, sessions, describe_session, describe_settings, set_describe, app_language, jobs, job_act, job_delete])
         .setup(|app| {
             auto_describe();
             tasks::watch_engines();

@@ -1,12 +1,12 @@
 /**
  * The panel's state: processes and the machine's RAM every 3 s, scheduled tasks every 10 s,
- * sessions and the CPU history every 15 s, only while the window is visible (closing it
+ * sessions, the CPU history and the sessions' history every 15 s, only while the window is visible (closing it
  * hides it to the tray), plus the shadow file and the description setting. Pages read it
  * through `useDeck()`.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api } from "./api";
-import type { CpuHistory, DescribeSettings, Freed, Group, JobGroup, Memory, ProposalRecord, SessionRow, ShadowRecord } from "./types";
+import type { CpuHistory, DescribeSettings, Freed, Group, JobGroup, Memory, PastRow, ProposalRecord, SessionRow, ShadowRecord } from "./types";
 
 const PROCESSES_MS = 3000;
 const SESSIONS_MS = 15000;
@@ -23,6 +23,8 @@ interface Deck {
   describe: DescribeSettings;
   memory: Memory | null;
   history: CpuHistory;
+  /** Every session a person opened, most recent first (the History page). */
+  past: PastRow[];
   /** After a closing: the RAM measured 2 s later, and the pids to drop from the lists until the next read. */
   applyFreed: (f: Freed, gone: number[]) => void;
   loaded: boolean;
@@ -62,6 +64,7 @@ export function DeckProvider({ children }: { children: ReactNode }) {
   const [describe, setDescribe] = useState<DescribeSettings>({ enabled: false, forced: false });
   const [memory, setMemory] = useState<Memory | null>(null);
   const [history, setHistory] = useState<CpuHistory>({});
+  const [past, setPast] = useState<PastRow[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [filter, setFilterRaw] = useState("");
   const visible = useVisible();
@@ -84,6 +87,7 @@ export function DeckProvider({ children }: { children: ReactNode }) {
   const loadSessions = useCallback(async () => {
     try { setSessions(await api.sessions()); } catch { setSessions([]); }
     try { setHistory(await api.cpuHistory()); } catch { /* keep the last one */ }
+    try { setPast(await api.history()); } catch { /* keep the last one */ }
   }, []);
   const applyFreed = useCallback((f: Freed, gone: number[]) => {
     setMemory((m) => (m ? { ...m, available: f.after } : m));
@@ -119,10 +123,10 @@ export function DeckProvider({ children }: { children: ReactNode }) {
   }, [visible, refresh, loadSessions, loadJobs]);
 
   const value = useMemo<Deck>(() => ({
-    groups, sessions, jobs, jobsLoaded, shadow, pending: pendingOf(shadow), describe, memory, history, applyFreed, loaded,
+    groups, sessions, jobs, jobsLoaded, shadow, pending: pendingOf(shadow), describe, memory, history, past, applyFreed, loaded,
     filter, setFilter: (f: string) => setFilterRaw(f.trim().toLowerCase()),
     refresh, loadSessions, loadJobs, loadShadow, loadDescribe,
-  }), [groups, sessions, jobs, jobsLoaded, shadow, describe, memory, history, applyFreed, loaded, filter, refresh, loadSessions, loadJobs, loadShadow, loadDescribe]);
+  }), [groups, sessions, jobs, jobsLoaded, shadow, describe, memory, history, past, applyFreed, loaded, filter, refresh, loadSessions, loadJobs, loadShadow, loadDescribe]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

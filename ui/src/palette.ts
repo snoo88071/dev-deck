@@ -80,6 +80,8 @@ export function themeConfig(dark: boolean, reducedMotion = false): ThemeConfig {
           colorTextSecondary: "#b7bdc8",
           colorTextTertiary: "#9aa3b2",
           colorTextDescription: "#9aa3b2",
+          // antd's placeholder grey reads 2:1; a placeholder is still text someone has to read.
+          colorTextPlaceholder: "#9aa3b2",
           colorBgBase: "#0d1015",
           colorBgLayout: "#0d1015",
           colorBgContainer: "#161a21",
@@ -108,6 +110,7 @@ export function themeConfig(dark: boolean, reducedMotion = false): ThemeConfig {
           colorTextSecondary: "#454c59",
           colorTextTertiary: "#5b6473",
           colorTextDescription: "#5b6473",
+          colorTextPlaceholder: "#5b6473",
           colorBgLayout: "#eef0f4",
           colorBgContainer: "#ffffff",
           colorBorder: "#d5d9e0",

@@ -10,13 +10,13 @@
 //! Claude Code with its tree (`actions::close_session`).
 
 use crate::procs::{runtime_of, RawProc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Kind {
     Terminal,
@@ -45,7 +45,7 @@ fn flag_value(cmd: &[String], name: &str) -> Option<String> {
     None
 }
 
-fn is_uuid(s: &str) -> bool {
+pub fn is_uuid(s: &str) -> bool {
     s.len() == 36 && s.chars().all(|c| c.is_ascii_hexdigit() || c == '-')
 }
 
@@ -243,6 +243,10 @@ fn secs(t: SystemTime) -> u64 {
 }
 
 pub fn projects_root() -> PathBuf {
+    // app-check points it at a temporary folder with a transcript of its own.
+    if let Ok(p) = std::env::var("DEVDECK_CLAUDE_PROJECTS") {
+        return p.into();
+    }
     let home = std::env::var("USERPROFILE").or_else(|_| std::env::var("HOME")).unwrap_or_else(|_| ".".into());
     Path::new(&home).join(".claude").join("projects")
 }

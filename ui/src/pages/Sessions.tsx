@@ -84,6 +84,8 @@ export function SessionsPage({ narrow, compact }: { narrow: boolean; compact: bo
       const f = await api.closeSession(s.pid);
       setGains((g) => ({ ...g, [s.pid]: Math.max(0, f.after - f.before) }));
       deck.applyFreed(f, [s.pid]);
+      // Its description where it got to, for the History (only with descriptions on: claude -p costs).
+      if (on && s.session_id) api.describePast(s.session_id, false).then(() => deck.loadSessions(), () => {});
     } catch (e) {
       ok = false;
       error = String(e);

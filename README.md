@@ -27,6 +27,9 @@ Task Manager shows twelve `node.exe`. Dev Deck shows `acme-shop/backend Â· npm â
 - **Claude Code sessions**: what's open, in which folder, how much it holds with what runs
   under it, and (opt-in) a one-line description of what each one is working on. Close a whole
   session (the conversation stays: `claude --resume`).
+- **History**: every session you opened from a terminal or VS Code, open or closed, by day,
+  searchable by what it was about. **Reopen** one with a click: a terminal in its folder with
+  `claude --resume <id>`, no id to remember.
 - **Scheduled tasks by project**: the Windows Task Scheduler's tasks that run something in
   a project (a nightly backup, a daily scrape), with what they run, when, and how the last run
   went. Run now, disable, or delete (a copy of the definition is kept). A process a task
