@@ -1,31 +1,61 @@
 /**
- * Cool greys, near-black text, one green. antd derives secondary text from the
- * main one with transparency (45% fails WCAG AA), so the text greys are set here;
- * `npm run contrast` measures every text on every page in both themes.
+ * One sheet of paper, ink, and three colors that only ever mean a state:
+ * green is free or alive, amber is still (nobody working), red is danger.
+ * What you can press is ink, never a color, so a color on screen always says something.
+ * antd derives secondary text from the main one with transparency (45% fails WCAG AA),
+ * so the text greys are set here; `npm run contrast` measures every text on every page in both themes.
  */
 import type { ThemeConfig } from "antd";
 import { theme } from "antd";
-import { MONO } from "./components/bits";
+import { MONO, SANS } from "./components/bits";
 
-/** White on it is 5.6:1, and it is 5.0:1 on its own light tint. */
-const GREEN = "#13773a";
-/** The same green as text on the dark ground, where the green above is too dark to read. */
-const GREEN_ON_DARK = "#4cc584";
+/** The colors the pages draw with themselves (weight.tsx, the rows, global.css). */
+export interface Ink {
+  paper: string;
+  side: string;
+  hover: string;
+  line: string;
+  border: string;
+  ink: string;
+  ink2: string;
+  ink3: string;
+  focus: string;
+  green: string;
+  greenFill: string;
+  greenTint: string;
+  amber: string;
+  amberFill: string;
+  amberTint: string;
+  red: string;
+  redTint: string;
+}
 
-const shared = {
-  colorPrimary: GREEN,
-  colorInfo: GREEN,
-  /** antd red (#ff4d4f) gives white text 3.3:1; this one 5.0:1. */
-  colorError: "#cf3337",
-  borderRadius: 8,
-  borderRadiusLG: 14,
-  fontFamilyCode: MONO,
+const LIGHT: Ink = {
+  paper: "#ffffff", side: "#f4f5f7", hover: "#f5f6f8", line: "#e9ebef", border: "#d6d9df",
+  ink: "#161a21", ink2: "#454c59", ink3: "#5b6371", focus: "#161a21",
+  green: "#13773a", greenFill: "#2e9a5c", greenTint: "#e5f3ea",
+  amber: "#965507", amberFill: "#c97a1a", amberTint: "#fbf0e1",
+  red: "#c22f33", redTint: "#fbeaea",
 };
 
+const DARK: Ink = {
+  paper: "#121419", side: "#0d0f13", hover: "#191c22", line: "#23272f", border: "#343a46",
+  ink: "#e8eaee", ink2: "#b7bdc8", ink3: "#9aa2b0", focus: "#e8eaee",
+  green: "#4cc584", greenFill: "#3aa86c", greenTint: "#15291e",
+  amber: "#f0a64a", amberFill: "#d08a34", amberTint: "#2b2012",
+  red: "#f2777b", redTint: "#2e1618",
+};
+
+export const inkOf = (dark: boolean): Ink => (dark ? DARK : LIGHT);
+
+/** The same colors as CSS variables, for global.css (focus ring, row hover, revealed actions). */
+export function cssVars(dark: boolean): Record<string, string> {
+  return Object.fromEntries(Object.entries(inkOf(dark)).map(([k, v]) => [`--dd-${k}`, v]));
+}
+
 /**
- * The colors of weight (direction A): what the processes hold, drawn in proportion.
- * Amber is the one accent and means one thing, "still here, nobody working":
- * green is what is free. `npm run contrast` measures the text ones.
+ * The colors of weight: what the processes hold, drawn in proportion.
+ * Amber means one thing, "still here, nobody working"; green is what is free.
  */
 export interface Weight {
   /** Strip segments. */
@@ -36,14 +66,15 @@ export interface Weight {
   system: string;
   free: string;
   freeEdge: string;
-  /** The bar behind a row. */
-  barActive: string;
-  barDormant: string;
+  /** The meter under a memory figure, and its track. */
+  meter: string;
+  meterTrack: string;
   /** Text. */
   dormantText: string;
   freeText: string;
-  /** The CPU line. */
+  /** The CPU line and its area. */
   line: string;
+  area: string;
   lineStill: string;
   /** "Close" on an idle session: the one filled button of the row. */
   closeBg: string;
@@ -51,78 +82,115 @@ export interface Weight {
 }
 
 export function weightColors(dark: boolean): Weight {
+  const k = inkOf(dark);
   return dark
     ? {
-        active: "#8a93a5", dormant: "#d08a34", process: "#555e70", system: "#2e3440", free: "#1f4a33", freeEdge: "#2f6b4a",
-        barActive: "rgba(232,234,238,.055)", barDormant: "rgba(240,166,74,.14)",
-        dormantText: "#f0a64a", freeText: GREEN_ON_DARK, line: "#b7bdc8", lineStill: "#3a4150",
-        closeBg: "#f0a64a", closeFg: "#1a1206",
+        active: "#8f98aa", dormant: k.amberFill, process: "#566072", system: "#2b313c", free: "#1c3a2a", freeEdge: "#2f6b4a",
+        meter: "#8f98aa", meterTrack: "#23272f",
+        dormantText: k.amber, freeText: k.green, line: "#c3c9d3", area: "rgba(195,201,211,.14)", lineStill: "#3a4150",
+        closeBg: k.amber, closeFg: "#1a1206",
       }
     : {
-        active: "#3b4454", dormant: "#b86a0e", process: "#8a93a3", system: "#d3d8e0", free: "#cfe9d8", freeEdge: "#9ccfae",
-        barActive: "rgba(59,68,84,.055)", barDormant: "rgba(184,106,14,.13)",
-        dormantText: "#9a5708", freeText: GREEN, line: "#4a5363", lineStill: "#c3c8d0",
-        closeBg: "#9a5708", closeFg: "#ffffff",
+        active: "#363e4c", dormant: k.amberFill, process: "#8a93a3", system: "#d5d9e0", free: "#d3ecdc", freeEdge: "#9fd0b1",
+        meter: "#363e4c", meterTrack: "#eceef1",
+        dormantText: k.amber, freeText: k.green, line: "#3c4452", area: "rgba(60,68,82,.10)", lineStill: "#c3c8d0",
+        closeBg: k.amber, closeFg: "#ffffff",
       };
 }
 
+/** Free RAM under this share of the total is tight (amber), under the second one short (red). */
+export const TIGHT = 0.2;
+export const SHORT = 0.08;
+export function freeTone(available: number, total: number, dark: boolean): string {
+  const k = inkOf(dark);
+  const share = available / Math.max(1, total);
+  return share < SHORT ? k.red : share < TIGHT ? k.amber : k.green;
+}
+
 export function themeConfig(dark: boolean, reducedMotion = false): ThemeConfig {
-  return dark
-    ? {
-        algorithm: theme.darkAlgorithm,
-        token: {
-          ...shared,
-          motion: !reducedMotion,
-          colorSuccess: GREEN_ON_DARK,
-          colorLink: GREEN_ON_DARK,
-          colorPrimaryText: GREEN_ON_DARK,
-          colorTextBase: "#e8eaee",
-          colorTextSecondary: "#b7bdc8",
-          colorTextTertiary: "#9aa3b2",
-          colorTextDescription: "#9aa3b2",
-          // antd's placeholder grey reads 2:1; a placeholder is still text someone has to read.
-          colorTextPlaceholder: "#9aa3b2",
-          colorBgBase: "#0d1015",
-          colorBgLayout: "#0d1015",
-          colorBgContainer: "#161a21",
-          colorBgElevated: "#1c212a",
-          colorBorder: "#2e3440",
-          colorBorderSecondary: "#232833",
-        },
-        components: {
-          Menu: { itemSelectedColor: GREEN_ON_DARK },
-          // Red tags write in colorError, which the danger buttons need dark (white on it):
-          // on the tag's dark red ground it read 2.8:1, so tags get a lighter red of their own.
-          Tag: { colorError: "#ff8a8c" },
-        },
-      }
-    : {
-        algorithm: theme.defaultAlgorithm,
-        token: {
-          ...shared,
-          motion: !reducedMotion,
-          colorSuccess: GREEN,
-          colorLink: GREEN,
-          colorWarning: "#b45309",
-          colorWarningBg: "#fdf6ea",
-          colorWarningBorder: "#f3d9b1",
-          colorTextBase: "#151821",
-          colorTextSecondary: "#454c59",
-          colorTextTertiary: "#5b6473",
-          colorTextDescription: "#5b6473",
-          colorTextPlaceholder: "#5b6473",
-          colorBgLayout: "#eef0f4",
-          colorBgContainer: "#ffffff",
-          colorBorder: "#d5d9e0",
-          colorBorderSecondary: "#e4e7ec",
-          // antd derives tints from the seed, and a dark green only reaches greyish ones: set them.
-          colorPrimaryBg: "#e8f5ed",
-          colorPrimaryBgHover: "#d4ecdd",
-          colorPrimaryBorder: "#a9d6ba",
-          colorSuccessBg: "#e8f5ed",
-          colorSuccessBorder: "#a9d6ba",
-          colorInfoBg: "#eef7f1",
-          colorInfoBorder: "#bfe0cb",
-        },
-      };
+  const k = inkOf(dark);
+  const token = {
+    motion: !reducedMotion,
+    fontFamily: SANS,
+    fontFamilyCode: MONO,
+    fontSize: 14,
+    borderRadius: 6,
+    borderRadiusLG: 10,
+    borderRadiusSM: 4,
+    // Ink is what you press: buttons, the selected page, links, focus.
+    colorPrimary: k.ink,
+    colorInfo: k.ink,
+    colorLink: k.ink,
+    colorLinkHover: k.ink2,
+    colorPrimaryText: k.ink,
+    colorPrimaryBg: k.hover,
+    colorPrimaryBgHover: k.line,
+    colorPrimaryBorder: k.border,
+    colorPrimaryBorderHover: k.ink3,
+    colorPrimaryHover: dark ? "#ffffff" : "#2e3542",
+    colorPrimaryActive: dark ? "#cfd3da" : "#000000",
+    colorSuccess: k.green,
+    colorSuccessBg: k.greenTint,
+    colorSuccessBorder: dark ? "#2a5a3f" : "#a9d6ba",
+    colorWarning: k.amber,
+    colorWarningBg: k.amberTint,
+    colorWarningBorder: dark ? "#5a4223" : "#efd2a8",
+    colorError: k.red,
+    colorErrorBg: k.redTint,
+    colorErrorBorder: dark ? "#5a2a2c" : "#f0c2c3",
+    colorInfoBg: k.hover,
+    colorInfoBorder: k.line,
+    colorTextBase: k.ink,
+    colorTextSecondary: k.ink2,
+    colorTextTertiary: k.ink3,
+    colorTextDescription: k.ink3,
+    // antd's placeholder grey reads 2:1; a placeholder is still text someone has to read.
+    colorTextPlaceholder: k.ink3,
+    colorBgBase: k.paper,
+    colorBgLayout: k.paper,
+    colorBgContainer: k.paper,
+    colorBgElevated: dark ? "#1b1e25" : "#ffffff",
+    colorBorder: k.border,
+    colorBorderSecondary: k.line,
+    colorFillTertiary: k.hover,
+    colorFillQuaternary: k.hover,
+    controlItemBgHover: k.hover,
+    controlItemBgActive: k.hover,
+    controlItemBgActiveHover: k.line,
+    // On an ink button the text is the paper: white in light, near-black in dark.
+    colorTextLightSolid: k.paper,
+    boxShadow: dark ? "0 8px 28px rgba(0,0,0,.5), 0 0 0 1px #2a2f38" : "0 8px 28px rgba(22,26,33,.12), 0 0 0 1px #e3e6ea",
+    boxShadowSecondary: dark ? "0 8px 28px rgba(0,0,0,.5), 0 0 0 1px #2a2f38" : "0 8px 28px rgba(22,26,33,.12), 0 0 0 1px #e3e6ea",
+  };
+  return {
+    algorithm: dark ? theme.darkAlgorithm : theme.defaultAlgorithm,
+    token,
+    components: {
+      Layout: { siderBg: k.side, lightSiderBg: k.side, bodyBg: k.paper, headerBg: k.paper },
+      Menu: {
+        itemBg: "transparent", subMenuItemBg: "transparent",
+        itemColor: k.ink2, itemHoverColor: k.ink, itemHoverBg: dark ? "#171a20" : "#eaecf0",
+        itemSelectedColor: k.ink, itemSelectedBg: dark ? "#1d2027" : "#e4e7ec",
+        itemActiveBg: dark ? "#1d2027" : "#e4e7ec",
+        itemHeight: 34, itemMarginInline: 8, itemBorderRadius: 6, iconSize: 15, collapsedIconSize: 16,
+      },
+      Table: {
+        headerBg: "transparent", headerColor: k.ink3, headerSplitColor: "transparent", headerBorderRadius: 0,
+        rowHoverBg: k.hover, borderColor: k.line, cellPaddingBlockSM: 10, cellPaddingInlineSM: 10,
+        rowExpandedBg: "transparent", expandIconBg: "transparent",
+      },
+      // White text on these: they keep white whatever the theme (the paper is dark in dark mode).
+      // A running task is alive: its dot is green, rippling.
+      Badge: { colorTextLightSolid: "#ffffff", colorError: dark ? "#d2393d" : k.red, colorInfo: k.greenFill, colorInfoTextHover: k.greenFill },
+      Tooltip: { colorBgSpotlight: dark ? "#e8eaee" : "#1d2129", colorTextLightSolid: dark ? "#121419" : "#ffffff" },
+      // On is alive: green, in both themes.
+      Switch: { colorPrimary: k.greenFill, colorPrimaryHover: k.green, colorTextLightSolid: "#ffffff" },
+      Tag: { defaultBg: k.hover, defaultColor: k.ink2 },
+      Button: { primaryShadow: "none", defaultShadow: "none", dangerShadow: "none", fontWeight: 500 },
+      Input: { activeShadow: "none" },
+      Select: { activeOutlineColor: "transparent" },
+      Modal: { titleFontSize: 16 },
+      Message: { contentBg: dark ? "#1b1e25" : "#ffffff" },
+    },
+  };
 }

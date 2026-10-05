@@ -1,20 +1,20 @@
 /**
- * The open Claude Code sessions, with their weight: a bar behind each row as long as the
- * memory it holds (with what runs under it), the CPU of the last 24 hours, and "Close"
+ * The open Claude Code sessions, with their weight: the memory each holds (with what runs
+ * under it) and a meter against the heaviest, the CPU of the last 24 hours, and "Close"
  * for the whole session. Sessions never enter cleanup: they close only when asked.
  * Descriptions are opt-in (claude -p costs tokens).
  */
 import { useState, type CSSProperties } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { App, Button, Descriptions, Empty, Flex, Switch, Tag, Tooltip, Typography, theme } from "antd";
+import { App, Button, Descriptions, Flex, Switch, Tag, Tooltip, Typography, theme } from "antd";
 import { FolderOpenOutlined, MinusOutlined, PlusOutlined, ThunderboltOutlined } from "@ant-design/icons";
 import { api } from "../api";
-import { IconButton, Mono } from "../components/bits";
+import { IconButton, Mono, Nothing } from "../components/bits";
 import { useActions } from "../components/actions";
-import { GainFigure, MemFigure, Sparkline, WeightBar, isDormant, useLeaving, useWeight } from "../components/weight";
-import { agoSec, matches, mb, since } from "../format";
+import { MemCell, Sparkline, isDormant, useLeaving, useWeight } from "../components/weight";
+import { agoSec, matches, mb, since, splitDescription } from "../format";
 import { useDeck } from "../store";
-import type { Session, SessionRow } from "../types";
+import type { Session } from "../types";
 
 const KIND_KEY = { terminal: "sessions.kindTerminal", vscode: "sessions.kindVscode", background: "sessions.kindBackground" } as const;
 const MATCH_KEY = { id: "sessions.matchId", time: "sessions.matchTime", uncertain: "sessions.matchUncertain", none: "sessions.matchNone" } as const;
@@ -29,6 +29,7 @@ function statusOf(last: number | null): { color: "success" | "warning" | "defaul
 
 const weightOf = (s: Session) => s.memory + s.children_memory;
 
+/** The switch for descriptions. What it costs shows while it is off: once on, it is known. */
 function DescribeSwitch() {
   const { message } = App.useApp();
   const { t } = useTranslation();
@@ -39,14 +40,16 @@ function DescribeSwitch() {
     await deck.loadDescribe();
   };
   return (
-    <Flex gap={8} align="center" wrap style={{ fontSize: 12 }}>
+    <Flex gap={8} align="center" wrap style={{ fontSize: 13 }}>
       <Tooltip title={forced ? t("sessions.switchForced") : undefined}>
         <Switch id="describe-switch" size="small" checked={enabled} disabled={forced} onChange={toggle} />
       </Tooltip>
-      <label htmlFor="describe-switch" style={{ fontWeight: 500 }}>{t("sessions.switch")}</label>
-      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-        <Trans i18nKey="sessions.switchHint" components={{ code: <Mono>{""}</Mono> }} />
-      </Typography.Text>
+      <label htmlFor="describe-switch" style={{ fontWeight: 500, cursor: forced ? undefined : "pointer" }}>{t("sessions.switch")}</label>
+      {enabled ? null : (
+        <Typography.Text type="secondary" style={{ fontSize: 12.5 }}>
+          <Trans i18nKey="sessions.switchHint" components={{ code: <Mono>{""}</Mono> }} />
+        </Typography.Text>
+      )}
     </Flex>
   );
 }
@@ -75,7 +78,7 @@ export function SessionsPage({ narrow, compact }: { narrow: boolean; compact: bo
   };
 
   // The row stays, dimmed, until the RAM is measured (2 s). Then, at once: the row shows what came back
-  // while its bar drains, the strip gives the memory back, the free figure counts up; then the row folds.
+  // while its meter drains, the strip gives the memory back, the free figure counts up; then the row folds.
   const closeNow = async (s: Session) => {
     setClosing((x) => [...x, s.pid]);
     let ok = true;
@@ -119,24 +122,24 @@ export function SessionsPage({ narrow, compact }: { narrow: boolean; compact: bo
   const max = Math.max(1, ...deck.sessions.map((r) => weightOf(r.session)));
 
   // Fixed, so the header lines up with the rows: Describe (when on), Close, the folder.
-  const actions = on ? (compact ? 136 : 200) : 104;
+  const actions = on ? (compact ? 132 : 196) : 104;
   const cols = narrow ? "28px minmax(0,1fr) auto"
-    : compact ? `28px minmax(0,1fr) 128px 120px ${actions}px`
-    : `28px minmax(0,1fr) 128px 120px 112px ${actions}px`;
+    : compact ? `28px minmax(0,1fr) 104px 112px ${actions}px`
+    : `28px minmax(0,1fr) 104px 112px 96px ${actions}px`;
   const agoInName = narrow || compact;
   const grid: CSSProperties = { display: "grid", gridTemplateColumns: cols, alignItems: "center", columnGap: narrow ? 12 : 20 };
   const head: CSSProperties = { fontSize: 12, fontWeight: 500, color: token.colorTextTertiary };
+  const inset = narrow ? 8 : 10;
 
   return (
-    <Flex vertical gap={12}>
+    <Flex vertical gap={14}>
       <DescribeSwitch />
-      {deck.sessions.length && !rows.length ? <Empty description={t("sessions.noMatch")} /> : null}
-      {!deck.sessions.length && !shown.length ? <Empty description={t("sessions.none")} /> : null}
+      {deck.sessions.length && !rows.length ? <Nothing text={t("sessions.noMatch")} /> : null}
+      {!deck.sessions.length && !shown.length ? <Nothing text={t("sessions.none")} /> : null}
       {shown.length ? (
-        <section aria-label={t("nav.sessions")}
-          style={{ background: token.colorBgContainer, border: `1px solid ${token.colorBorderSecondary}`, borderRadius: token.borderRadiusLG, overflow: "hidden" }}>
+        <section aria-label={t("nav.sessions")} style={{ marginInline: -inset }}>
           {narrow ? null : (
-            <div aria-hidden="true" style={{ ...grid, ...head, padding: "10px 16px" }}>
+            <div aria-hidden="true" style={{ ...grid, ...head, padding: `8px ${inset}px`, borderBottom: `1px solid ${token.colorBorderSecondary}` }}>
               <span /><span>{t("sessions.session")}</span><span style={{ textAlign: "right" }}>{t("sessions.memory")}</span>
               <span>{t("sessions.cpu24")}</span>{compact ? null : <span>{t("sessions.active")}</span>}<span />
             </div>
@@ -151,56 +154,53 @@ export function SessionsPage({ narrow, compact }: { narrow: boolean; compact: bo
               const gained = gain != null;
               const busy = closing.includes(s.pid) && !gained;
               const dot = dormant ? c.dormant : st.color === "success" ? token.colorSuccess : st.color === "warning" ? token.colorWarning : token.colorTextQuaternary;
+              const [state, next] = d ? splitDescription(d.text) : ["", null];
+              const procs = t("count.process", { count: s.children + 1 });
               return (
-                <li key={s.pid} className={`dd-fold dd-session${leaving ? " gone" : ""}${gained ? " late" : ""}`} style={{ borderTop: `1px solid ${token.colorBorderSecondary}` }}>
-                  <div>
-                    <div style={{ ...grid, position: "relative", zIndex: 0, padding: "12px 16px", opacity: busy ? 0.55 : 1, transition: "opacity .2s" }}>
-                      <WeightBar share={share} dormant={dormant} drain={gained} />
+                <li key={s.pid} className={`dd-fold dd-session${leaving ? " gone" : ""}${gained ? " late" : ""}`} style={{ borderBottom: `1px solid ${token.colorBorderSecondary}` }}>
+                  <div className="dd-row">
+                    <div style={{ ...grid, padding: `14px ${inset}px`, opacity: busy ? 0.55 : 1, transition: "opacity .2s" }}>
                       <Button type="text" size="small" aria-expanded={expanded} aria-label={t("sessions.details")} className="dd-expand"
                         icon={expanded ? <MinusOutlined aria-hidden /> : <PlusOutlined aria-hidden />}
-                        onClick={() => setOpen((o) => (expanded ? o.filter((p) => p !== s.pid) : [...o, s.pid]))} style={{ position: "relative" }} />
-                      <Flex vertical gap={3} style={{ minWidth: 0, position: "relative" }}>
-                        <Flex gap={8} align="center" wrap>
-                          <span role="img" aria-label={t(st.key)} title={t(st.key)} style={{ width: 7, height: 7, borderRadius: "50%", background: dot, flex: "none" }} />
-                          <Typography.Text strong style={{ color: dormant ? token.colorTextSecondary : undefined }}>{s.project ?? "?"}</Typography.Text>
-                          <Tag style={{ marginInlineEnd: 0 }}>{kind(s)}</Tag>
+                        onClick={() => setOpen((o) => (expanded ? o.filter((p) => p !== s.pid) : [...o, s.pid]))} />
+                      <Flex vertical gap={3} style={{ minWidth: 0, maxWidth: 820 }}>
+                        <Flex gap={10} align="baseline" wrap style={{ rowGap: 0 }}>
+                          <span role="img" aria-label={t(st.key)} title={t(st.key)} style={{ width: 7, height: 7, borderRadius: "50%", background: dot, flex: "none", alignSelf: "center" }} />
+                          <Typography.Text strong>{s.project ?? "?"}</Typography.Text>
+                          <Typography.Text type="secondary" style={{ fontSize: 12 }}>{kind(s)}</Typography.Text>
                           {s.match === "uncertain"
-                            ? <Tooltip title={t("sessions.uncertainHint")}><Tag color="warning" style={{ marginInlineEnd: 0 }}>{t("sessions.uncertain")}</Tag></Tooltip>
+                            ? <Tooltip title={t("sessions.uncertainHint")}><Tag color="warning" style={{ marginInlineEnd: 0, alignSelf: "center" }}>{t("sessions.uncertain")}</Tag></Tooltip>
                             : null}
                           {agoInName && s.last_activity
                             ? <Typography.Text style={{ fontSize: 12, color: dormant ? c.dormantText : token.colorTextSecondary }}>{agoSec(s.last_activity)}</Typography.Text>
                             : null}
                         </Flex>
-                        {d
-                          ? <Typography.Text type={fresh && !dormant ? undefined : "secondary"} ellipsis={{ tooltip: d.text }} style={{ maxWidth: "100%" }}>{d.text}</Typography.Text>
-                          : <Typography.Text type="secondary" italic>
-                              {!s.transcript ? t("sessions.nothingWritten") : on ? t("sessions.noDescription") : t("sessions.descriptionsOff")}
-                            </Typography.Text>}
-                        {narrow && gained ? <GainFigure bytes={gain} /> : narrow ? (
-                          <Flex align="baseline" gap={8}>
-                            <MemFigure bytes={weightOf(s)} share={share} dormant={dormant} />
-                            <Typography.Text type="secondary" style={{ fontSize: 12 }}>{t("count.process", { count: s.children + 1 })}</Typography.Text>
-                          </Flex>
-                        ) : null}
+                        {d ? (
+                          <>
+                            <Typography.Paragraph type={fresh && !dormant && !next ? undefined : "secondary"} ellipsis={{ rows: next ? 1 : 2, tooltip: d.text }} style={{ margin: 0 }}>{state}</Typography.Paragraph>
+                            {next ? <Typography.Paragraph type={fresh && !dormant ? undefined : "secondary"} ellipsis={{ rows: 1, tooltip: next }} style={{ margin: 0, fontWeight: 500 }}>{next}</Typography.Paragraph> : null}
+                          </>
+                        ) : <Typography.Text type="secondary" italic>
+                            {!s.transcript ? t("sessions.nothingWritten") : on ? t("sessions.noDescription") : t("sessions.descriptionsOff")}
+                          </Typography.Text>}
+                        {narrow ? <div style={{ marginTop: 4 }}><MemCell inline bytes={weightOf(s)} share={share} dormant={dormant} gain={gain} sub={gained ? undefined : procs} /></div> : null}
                       </Flex>
-                      {narrow ? null : gained ? (
-                        <Flex justify="flex-end" style={{ position: "relative" }}><GainFigure bytes={gain} size={Math.max(24, 14 + 10 * share)} /></Flex>
-                      ) : (
-                        <Flex vertical align="flex-end" gap={2} style={{ position: "relative" }}>
-                          <MemFigure bytes={weightOf(s)} share={share} dormant={dormant} />
-                          <Typography.Text type="secondary" style={{ fontSize: 12 }}>{t("count.process", { count: s.children + 1 })}</Typography.Text>
+                      {narrow ? null : (
+                        <Flex justify="flex-end">
+                          <MemCell bytes={weightOf(s)} share={share} dormant={dormant} gain={gain} sub={gained ? undefined : procs} />
                         </Flex>
                       )}
-                      {narrow ? null : <div style={{ position: "relative" }}><Sparkline values={deck.history[s.key]} dormant={dormant} /></div>}
+                      {narrow ? null : <Sparkline values={deck.history[s.key]} dormant={dormant} />}
                       {agoInName ? null : (
-                        <Typography.Text style={{ position: "relative", fontSize: 13, color: dormant ? c.dormantText : token.colorTextSecondary }}>
+                        <Typography.Text className="dd-num" style={{ fontSize: 13, color: dormant ? c.dormantText : token.colorTextSecondary }}>
                           {agoSec(s.last_activity)}
                         </Typography.Text>
                       )}
-                      <Flex justify="flex-end" align="center" gap={4} style={{ position: "relative", visibility: gained ? "hidden" : undefined }}>
+                      <Flex justify="flex-end" align="center" gap={4} style={{ visibility: gained ? "hidden" : undefined }}>
                         {on && s.transcript ? (
                           <Tooltip title={t("sessions.describeHint")}>
                             <Button size="small" type="text" icon={<ThunderboltOutlined aria-hidden />} loading={describing.includes(s.pid)}
+                              className={describing.includes(s.pid) ? undefined : "dd-quiet"}
                               aria-label={t("sessions.describe")} onClick={() => describeNow(s.pid)}>{agoInName ? null : t("sessions.describe")}</Button>
                           </Tooltip>
                         ) : null}
@@ -209,17 +209,17 @@ export function SessionsPage({ narrow, compact }: { narrow: boolean; compact: bo
                           style={dormant ? { background: c.closeBg, borderColor: c.closeBg, color: c.closeFg } : undefined}>
                           {t("sessions.close")}
                         </Button>
-                        {s.cwd ? <IconButton title={t("common.openFolder")} icon={FolderOpenOutlined} onClick={() => openFolder(s.cwd!, false)} /> : null}
+                        {s.cwd ? <span className="dd-quiet"><IconButton title={t("common.openFolder")} icon={FolderOpenOutlined} onClick={() => openFolder(s.cwd!, false)} /></span> : null}
                       </Flex>
                     </div>
                     {expanded ? (
-                      <div style={{ padding: narrow ? "0 12px 12px" : "0 16px 14px 64px" }}>
+                      <div style={{ padding: narrow ? `0 ${inset}px 14px` : `0 ${inset}px 16px ${inset + 48}px` }}>
                         <Descriptions size="small" column={narrow ? 1 : 2} items={[
                           { key: "l", label: t("sessions.lastPrompt"), span: narrow ? 1 : 2, children: s.last_prompt ?? "-" },
                           { key: "t", label: t("sessions.title"), children: s.title ?? "-" },
                           { key: "p", label: t("sessions.process"), children: t("sessions.processValue", { pid: s.pid, time: since(s.run_time), memory: mb(s.memory) }) },
                           { key: "f", label: t("sessions.folder"), span: narrow ? 1 : 2, children: <Mono>{s.cwd ?? "-"}</Mono> },
-                          { key: "c", label: t("sessions.children"), children: s.children ? `${t("count.process", { count: s.children })} · ${mb(s.children_memory)}` : t("sessions.childrenNone") },
+                          { key: "c", label: t("sessions.children"), children: s.children ? `${t("count.process", { count: s.children })}, ${mb(s.children_memory)}` : t("sessions.childrenNone") },
                           { key: "m", label: t("sessions.match"), children: t(MATCH_KEY[s.match]) },
                           { key: "s", label: t("sessions.session"), span: narrow ? 1 : 2, children: <Mono>{s.session_id ?? "-"}</Mono> },
                           {
@@ -239,3 +239,4 @@ export function SessionsPage({ narrow, compact }: { narrow: boolean; compact: bo
     </Flex>
   );
 }
+

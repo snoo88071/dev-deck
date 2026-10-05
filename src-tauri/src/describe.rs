@@ -123,7 +123,10 @@ fn now() -> u64 {
 pub fn system_prompt(language: &str) -> String {
     format!(
         "Here is the final part of a conversation between a person and Claude Code (a coding assistant), in a session opened in a folder. \
-In one or two sentences in {language}, say what is being worked on right now and how far along it is: for example (in English) \"Adding Claude Code sessions to the panel; the Rust side is done, the UI is missing.\". \
+In one or two sentences in {language}, say what is being worked on right now and how far along it is; \
+when something is left to do, the second sentence says only that (the panel shows it on its own line). \
+Start with the work itself, never with an impersonal or passive opening (not \"It is being...\", not the Italian \"Si sta...\"), and stay under 30 words. \
+For example (in English): \"Claude Code sessions in the panel: the Rust side is done. The UI is still missing.\" \
 Write without names of people and without gendered pronouns or adjectives for the person. Only the sentences, no preamble, no lists."
     )
 }

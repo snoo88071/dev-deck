@@ -5,10 +5,10 @@
  */
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { App, Badge, Empty, Flex, Table, Tag, Tooltip, Typography, theme, type TableColumnsType } from "antd";
+import { App, Badge, Flex, Table, Tag, Tooltip, Typography, theme, type TableColumnsType } from "antd";
 import { CaretRightOutlined, CodeOutlined, DeleteOutlined, FolderOpenOutlined, PauseCircleOutlined, PlayCircleOutlined } from "@ant-design/icons";
 import { api } from "../api";
-import { IconButton, Mono } from "../components/bits";
+import { IconButton, Mono, Nothing, shortPath } from "../components/bits";
 import { useActions } from "../components/actions";
 import { matches, outcome, schedule, when } from "../format";
 import { useDeck } from "../store";
@@ -104,18 +104,18 @@ export function JobsPage({ narrow }: { narrow: boolean }) {
   }));
 
   if (deck.jobsLoaded && !groups.length) {
-    return <Empty description={f && deck.jobs.length ? t("jobs.noMatch") : t("jobs.none")} />;
+    return <Nothing text={f && deck.jobs.length ? t("jobs.noMatch") : t("jobs.none")} />;
   }
 
   const nameCell = (r: Row) => {
     if (r.kind === "group") {
       return (
-        <span style={{ display: "inline-flex", flexDirection: "column", verticalAlign: "middle", maxWidth: "calc(100% - 30px)", minWidth: 0 }}>
-          <Flex gap={6} align="center" wrap>
+        <span style={{ display: "inline-flex", flexDirection: "column", gap: 1, verticalAlign: "middle", maxWidth: "calc(100% - 30px)", minWidth: 0 }}>
+          <Flex gap={10} align="baseline" wrap style={{ rowGap: 0 }}>
             <Typography.Text strong>{r.g.name}</Typography.Text>
-            <Typography.Text type="secondary">{t("count.task", { count: r.g.jobs.length })}</Typography.Text>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>{t("count.task", { count: r.g.jobs.length })}</Typography.Text>
           </Flex>
-          <Mono type="secondary" ellipsis style={{ fontSize: 12 }}>{r.g.root}</Mono>
+          <Mono type="secondary" ellipsis style={{ fontSize: 12 }}>{shortPath(r.g.root)}</Mono>
         </span>
       );
     }
@@ -124,15 +124,15 @@ export function JobsPage({ narrow }: { narrow: boolean }) {
       .filter(Boolean).join("\n\n");
     return (
       <span title={tip} style={{ display: "inline-flex", flexDirection: "column", gap: 2, verticalAlign: "middle", maxWidth: "calc(100% - 44px)", minWidth: 0 }}>
-        <Flex gap={6} align="center" wrap>
-          <Tag style={{ marginInlineEnd: 0 }}>{j.runtime}</Tag>
+        <Flex gap={8} align="center" wrap>
           <Typography.Text strong>{j.name}</Typography.Text>
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>{j.runtime}</Typography.Text>
           {!j.enabled ? <Tag style={{ marginInlineEnd: 0 }}>{t("jobs.disabled")}</Tag> : null}
           {j.missing
             ? <Tooltip title={j.missing}><Tag color="error" style={{ marginInlineEnd: 0 }}>{t(j.missing === j.workdir ? "jobs.missingFolder" : "jobs.missingScript")}</Tag></Tooltip>
             : null}
         </Flex>
-        <Mono type="secondary" ellipsis style={{ minWidth: 0 }}>{j.script ?? j.cmd}</Mono>
+        <Mono type="secondary" ellipsis style={{ minWidth: 0, fontSize: 12 }}>{shortPath(j.script ?? j.cmd)}</Mono>
         {narrow ? whenCell(j) : null}
         {narrow ? lastCell(j) : null}
       </span>
@@ -164,17 +164,17 @@ export function JobsPage({ narrow }: { narrow: boolean }) {
     { title: t("jobs.task"), key: "name", onCell: () => ({ style: { overflow: "hidden" } }), render: (_, r) => nameCell(r) },
     ...(narrow ? [] : [
       { title: t("jobs.when"), key: "when", width: 190, render: (_: unknown, r: Row) => (r.kind === "job" ? whenCell(r.j) : null) },
-      { title: t("jobs.last"), key: "last", width: 170, render: (_: unknown, r: Row) => (r.kind === "job" ? lastCell(r.j) : null) },
+      { title: t("jobs.last"), key: "last", width: 210, render: (_: unknown, r: Row) => (r.kind === "job" ? lastCell(r.j) : null) },
     ]),
     {
       title: <span className="sr-only">{t("common.actions")}</span>, key: "acts", width: narrow ? 84 : 132, align: "right",
       render: (_, r) => {
         if (r.kind === "group") {
-          return <Flex justify="flex-end"><IconButton title={t("common.openFolder")} icon={FolderOpenOutlined} onClick={() => openFolder(r.g.root, false)} /></Flex>;
+          return <Flex justify="flex-end" className="dd-quiet"><IconButton title={t("common.openFolder")} icon={FolderOpenOutlined} onClick={() => openFolder(r.g.root, false)} /></Flex>;
         }
         const j = r.j;
         return (
-          <Flex justify="flex-end">
+          <Flex justify="flex-end" className="dd-quiet">
             {j.enabled && !j.missing ? <IconButton title={t("jobs.run")} icon={CaretRightOutlined} onClick={() => run(j)} /> : null}
             <IconButton title={j.enabled ? t("jobs.disable") : t("jobs.enable")} icon={j.enabled ? PauseCircleOutlined : PlayCircleOutlined} onClick={() => toggle(j)} />
             {j.script && !j.missing && !narrow ? <IconButton title={t("jobs.openScript")} icon={CodeOutlined} onClick={() => openFolder(j.script!, true)} /> : null}
@@ -186,9 +186,9 @@ export function JobsPage({ narrow }: { narrow: boolean }) {
   ];
 
   return (
-    <Table<Row> size="small" pagination={false} columns={columns} dataSource={data} tableLayout="fixed"
-      style={{ borderRadius: token.borderRadiusLG, overflow: "hidden" }}
-      locale={{ emptyText: <Empty description={t("jobs.none")} /> }}
+    <Table<Row> size="small" pagination={false} style={{ marginInline: -10 }} columns={columns} dataSource={data} tableLayout="fixed"
+      locale
+={{ emptyText: <Nothing text={t("jobs.none")} /> }}
       expandable={{
         indentSize: 14,
         expandedRowKeys: data.map((r) => r.key).filter((k) => !closed.includes(k)),

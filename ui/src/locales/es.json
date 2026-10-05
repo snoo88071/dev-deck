@@ -26,11 +26,11 @@
     "cleanupNone": "Nada pendiente de veredicto",
     "jobsBroken_one": "{{count}} por revisar",
     "jobsBroken_other": "{{count}} por revisar",
-    "filterSessions": "Filtrar sesiones",
-    "filterProcesses": "Filtrar proyectos, comandos, puertos",
-    "filterJobs": "Filtrar tareas, scripts, proyectos",
-    "filterCleanup": "Filtrar propuestas",
-    "filterHistory": "Busca títulos, prompts, proyectos"
+    "filterSessions": "Buscar sesiones",
+    "filterProcesses": "Buscar procesos o puertos",
+    "filterJobs": "Buscar tareas",
+    "filterCleanup": "Buscar propuestas",
+    "filterHistory": "Buscar sesiones"
   },
   "count": {
     "project_one": "{{count}} proyecto",
@@ -78,7 +78,7 @@
     "name": "Nombre",
     "ports": "Puertos",
     "memory": "Memoria",
-    "uptime": "Tiempo activo",
+    "uptime": "Activo hace",
     "unknownFolder": "carpeta desconocida",
     "claudeCode": "Claude Code",
     "jobs_one": "{{count}} programada",
@@ -87,7 +87,7 @@
     "byTask": "Iniciado por la tarea programada «{{name}}»",
     "mcpRow_one": "{{count}} proceso lanzado por Claude Code (servidor MCP)",
     "mcpRow_other": "{{count}} procesos lanzados por Claude Code (servidores MCP)",
-    "launchedByClaude": "Lanzados por Claude Code · {{servers}} en {{folders}}",
+    "launchedByClaude": "Lanzados por Claude Code",
     "stopProject": "Detener el proyecto (no los servidores MCP de Claude Code)",
     "stopProjectTitle": "¿Detener «{{name}}»?",
     "stopMcp": "Detener estos servidores MCP",
@@ -96,7 +96,8 @@
     "stopProc": "Detener el proceso {{pid}} y sus hijos",
     "stopProcTitle": "¿Detener el proceso {{pid}}?",
     "noMatch": "Nada coincide con el filtro.",
-    "none": "No hay procesos de desarrollo en marcha. Disfruta la tarde."
+    "none": "No hay procesos de desarrollo en marcha. Disfruta la tarde.",
+    "launchedCount": "{{servers}} en {{folders}}"
   },
   "sessions": {
     "session": "Sesión",
@@ -217,8 +218,7 @@
     "none": "Ninguna tarea programada ejecuta nada en tus proyectos."
   },
   "cleanup": {
-    "shadowTitle": "Modo sombra",
-    "shadowText": "Nada se cierra solo. Tus veredictos miden, por categoría, dónde Claude Code podría actuar por su cuenta. Aquí llegan también las propuestas de Claude.",
+    "shadowText": "Nada se cierra solo. Tus veredictos muestran, categoría por categoría, dónde Claude Code podría actuar solo.",
     "scan": "Buscar ahora",
     "scanFailed": "La búsqueda falló: {{error}}",
     "scanNothing": "Sin propuestas: nada huérfano, duplicado, inactivo desde hace tiempo ni programado y roto.",
@@ -270,13 +270,16 @@
     "allProjects": "Todos los proyectos",
     "project": "Proyecto",
     "open": "abierta",
-    "lasted": "duró {{time}}",
-    "untitled": "Sin título",
     "none": "Todavía no hay sesiones: aparecen cuando abres Claude Code desde una terminal o VS Code.",
     "noMatch": "Ninguna sesión coincide con la búsqueda.",
     "resume": "Reabrir",
     "resumeHint": "Abre una terminal en su carpeta con claude --resume",
     "resumed": "Abierta",
-    "resumeFailed": "No se reabrió: {{error}}"
+    "resumeFailed": "No se reabrió: {{error}}",
+    "empty": "Sin prompts",
+    "started": "empezó {{when}}",
+    "lastActive": "última actividad {{when}}",
+    "more": "más",
+    "redescribe": "Describir de nuevo"
   }
 }

@@ -5,16 +5,17 @@
  */
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, App, Button, Empty, Flex, Input, Table, Tag, Typography, theme, type TableColumnsType } from "antd";
+import { App, Button, Flex, Input, Table, Tag, Typography, theme, type TableColumnsType } from "antd";
 import { CheckOutlined, PauseCircleOutlined, PoweroffOutlined, ScanOutlined, StopOutlined } from "@ant-design/icons";
 import { api } from "../api";
 import { cleanup } from "../cleanup";
-import { Mono } from "../components/bits";
+import { Mono, Nothing } from "../components/bits";
 import { agoIso, matches } from "../format";
 import { useDeck } from "../store";
 import type { ProposalRecord, Verdict } from "../types";
 
-const COLORS: Record<string, string> = { "orphan-mcp": "purple", duplicate: "warning", session: "blue", idle: "default", "task-gone": "error", "task-failing": "volcano" };
+/** A category is a word, not a color: only the broken tasks are red, since they are failing now. */
+const COLORS: Record<string, string> = { "task-gone": "error", "task-failing": "error" };
 
 const newId = () => crypto.randomUUID().slice(0, 8);
 const nowIso = () => new Date().toISOString();
@@ -98,7 +99,7 @@ export function CleanupPage({ narrow }: { narrow: boolean }) {
   };
 
   const scanButton = (
-    <Button type="primary" icon={<ScanOutlined aria-hidden />} loading={scanning} onClick={scan} block={narrow} size={narrow ? "middle" : "small"}>{t("cleanup.scan")}</Button>
+    <Button icon={<ScanOutlined aria-hidden />} loading={scanning} onClick={scan} block={narrow}>{t("cleanup.scan")}</Button>
   );
 
   const order = (c: string) => { const i = cleanup.CATEGORIES.indexOf(c); return i < 0 ? 99 : i; };
@@ -131,7 +132,7 @@ export function CleanupPage({ narrow }: { narrow: boolean }) {
       title: t("cleanup.proposed"), key: "at", width: 150,
       render: (_: unknown, r: ProposalRecord) => (
         <Flex vertical>
-          <Typography.Text type="secondary">{agoIso(r.at)}</Typography.Text>
+          <Typography.Text type="secondary" style={{ fontSize: 13 }}>{agoIso(r.at)}</Typography.Text>
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>{r.source === "claude" ? t("cleanup.byClaude") : t("cleanup.byPanel")}</Typography.Text>
         </Flex>
       ),
@@ -151,7 +152,7 @@ export function CleanupPage({ narrow }: { narrow: boolean }) {
             <Button size="small" icon={<CheckOutlined aria-hidden />} disabled={loading} onClick={() => judge(r, live ? "keep" : "close", false)}>
               {live ? (narrow ? t("cleanup.keepShort") : t("cleanup.keep")) : t("cleanup.alreadyClosed")}
             </Button>
-            <Button size="small" type="text" icon={<StopOutlined aria-hidden />} disabled={loading} onClick={() => judge(r, "wrong", false)}>{t("cleanup.wrong")}</Button>
+            <Button size="small" type="text" icon={<StopOutlined aria-hidden />} disabled={loading} onClick={() => judge(r, "wrong", false)} style={{ color: token.colorTextSecondary }}>{t("cleanup.wrong")}</Button>
           </Flex>
         );
       },
@@ -160,22 +161,23 @@ export function CleanupPage({ narrow }: { narrow: boolean }) {
 
   return (
     <Flex vertical gap={12}>
-      <Alert type="info" showIcon title={t("cleanup.shadowTitle")}
-        description={t("cleanup.shadowText")}
-        action={narrow ? undefined : scanButton} />
-      {narrow ? scanButton : null}
-      <Table<ProposalRecord> size="small" rowKey="id" pagination={false} columns={columns} dataSource={rows} tableLayout="fixed"
-        locale={{ emptyText: <Empty description={deck.filter ? t("cleanup.noMatch") : t("cleanup.none")} /> }}
+      <Flex justify="space-between" align="center" gap={16} wrap>
+        <Typography.Text type="secondary" style={{ fontSize: 13, maxWidth: 760 }}>{t("cleanup.shadowText")}</Typography.Text>
+        {scanButton}
+      </Flex>
+      <Table<ProposalRecord> size="small" rowKey="id" pagination={false} style={{ marginInline: -10 }} columns={columns} dataSource={rows} tableLayout="fixed"
+        locale={{ emptyText: <Nothing text={deck.filter ? t("cleanup.noMatch") : t("cleanup.none")} /> }}
         expandable={{
           // Open by default, new proposals included: the evidence is what you judge.
           expandedRowKeys: rows.map((r) => r.id).filter((id) => !folded.includes(id)),
           onExpand: (open, r) => setFolded((f) => (open ? f.filter((x) => x !== r.id) : [...f, r.id])),
           expandedRowRender: (r) => (
-            <Flex vertical gap={8}>
-              <ul style={{ margin: 0, paddingInlineStart: 18, color: token.colorTextSecondary }}>
+            <Flex vertical gap={8} style={{ paddingInlineStart: narrow ? 0 : 40, paddingBlockEnd: 4 }}>
+              <ul style={{ margin: 0, paddingInlineStart: 18, color: token.colorTextSecondary, fontSize: 13 }}>
                 {r.evidence.map((e) => <li key={e}>{e}</li>)}
               </ul>
-              <Input size="small" placeholder={t("cleanup.why")} aria-label={t("cleanup.why")}
+              <Input size="small" variant="filled" placeholder={t("cleanup.why")} aria-label={t("cleanup.why")}
+
                 value={notes[r.id] ?? ""} onChange={(e) => setNotes((n) => ({ ...n, [r.id]: e.target.value }))} style={{ maxWidth: 420 }} />
             </Flex>
           ),

@@ -26,11 +26,11 @@
     "cleanupNone": "Nothing waiting for a verdict",
     "jobsBroken_one": "{{count}} needs a look",
     "jobsBroken_other": "{{count}} need a look",
-    "filterSessions": "Filter sessions",
-    "filterProcesses": "Filter projects, commands, ports",
-    "filterJobs": "Filter tasks, scripts, projects",
-    "filterCleanup": "Filter proposals",
-    "filterHistory": "Search titles, prompts, projects"
+    "filterSessions": "Search sessions",
+    "filterProcesses": "Search processes or ports",
+    "filterJobs": "Search tasks",
+    "filterCleanup": "Search proposals",
+    "filterHistory": "Search sessions"
   },
   "count": {
     "project_one": "{{count}} project",
@@ -78,7 +78,7 @@
     "name": "Name",
     "ports": "Ports",
     "memory": "Memory",
-    "uptime": "Uptime",
+    "uptime": "Up for",
     "unknownFolder": "unknown folder",
     "claudeCode": "Claude Code",
     "jobs_one": "{{count}} scheduled",
@@ -87,7 +87,7 @@
     "byTask": "Started by the scheduled task \"{{name}}\"",
     "mcpRow_one": "{{count}} process launched by Claude Code (MCP server)",
     "mcpRow_other": "{{count}} processes launched by Claude Code (MCP servers)",
-    "launchedByClaude": "Launched by Claude Code · {{servers}} in {{folders}}",
+    "launchedByClaude": "Launched by Claude Code",
     "stopProject": "Stop the project (not Claude Code's MCP servers)",
     "stopProjectTitle": "Stop \"{{name}}\"?",
     "stopMcp": "Stop these MCP servers",
@@ -96,7 +96,8 @@
     "stopProc": "Stop process {{pid}} and its children",
     "stopProcTitle": "Stop process {{pid}}?",
     "noMatch": "Nothing matches the filter.",
-    "none": "No dev processes running. Enjoy your evening."
+    "none": "No dev processes running. Enjoy your evening.",
+    "launchedCount": "{{servers}} in {{folders}}"
   },
   "sessions": {
     "session": "Session",
@@ -217,8 +218,7 @@
     "none": "No scheduled task runs anything in your projects."
   },
   "cleanup": {
-    "shadowTitle": "Shadow mode",
-    "shadowText": "Nothing closes by itself. Your verdicts measure, per category, where Claude Code could act on its own. Proposals made by Claude land here too.",
+    "shadowText": "Nothing closes by itself. Your verdicts show, category by category, where Claude Code could act alone.",
     "scan": "Scan now",
     "scanFailed": "Scan failed: {{error}}",
     "scanNothing": "No proposals: nothing orphaned, duplicated, idle for long, or scheduled and broken.",
@@ -270,13 +270,16 @@
     "allProjects": "All projects",
     "project": "Project",
     "open": "open",
-    "lasted": "lasted {{time}}",
-    "untitled": "Untitled",
     "none": "No sessions yet: they show up once you open Claude Code from a terminal or VS Code.",
     "noMatch": "No session matches the search.",
     "resume": "Reopen",
     "resumeHint": "Opens a terminal in its folder with claude --resume",
     "resumed": "Opened",
-    "resumeFailed": "Not reopened: {{error}}"
+    "resumeFailed": "Not reopened: {{error}}",
+    "empty": "No prompts",
+    "started": "started {{when}}",
+    "lastActive": "last active {{when}}",
+    "more": "more",
+    "redescribe": "Describe again"
   }
 }

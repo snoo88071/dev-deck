@@ -26,11 +26,11 @@
     "cleanupNone": "Rien n'attend de verdict",
     "jobsBroken_one": "{{count}} à vérifier",
     "jobsBroken_other": "{{count}} à vérifier",
-    "filterSessions": "Filtrer les sessions",
-    "filterProcesses": "Filtrer projets, commandes, ports",
-    "filterJobs": "Filtrer tâches, scripts, projets",
-    "filterCleanup": "Filtrer les propositions",
-    "filterHistory": "Chercher titres, prompts, projets"
+    "filterSessions": "Chercher des sessions",
+    "filterProcesses": "Chercher processus ou ports",
+    "filterJobs": "Chercher des tâches",
+    "filterCleanup": "Chercher des propositions",
+    "filterHistory": "Chercher des sessions"
   },
   "count": {
     "project_one": "{{count}} projet",
@@ -87,7 +87,7 @@
     "byTask": "Lancé par la tâche planifiée « {{name}} »",
     "mcpRow_one": "{{count}} processus lancé par Claude Code (serveur MCP)",
     "mcpRow_other": "{{count}} processus lancés par Claude Code (serveurs MCP)",
-    "launchedByClaude": "Lancés par Claude Code · {{servers}} dans {{folders}}",
+    "launchedByClaude": "Lancés par Claude Code",
     "stopProject": "Arrêter le projet (pas les serveurs MCP de Claude Code)",
     "stopProjectTitle": "Arrêter « {{name}} » ?",
     "stopMcp": "Arrêter ces serveurs MCP",
@@ -96,7 +96,8 @@
     "stopProc": "Arrêter le processus {{pid}} et ses enfants",
     "stopProcTitle": "Arrêter le processus {{pid}} ?",
     "noMatch": "Rien ne correspond au filtre.",
-    "none": "Aucun processus de développement en cours. Bonne soirée."
+    "none": "Aucun processus de développement en cours. Bonne soirée.",
+    "launchedCount": "{{servers}} dans {{folders}}"
   },
   "sessions": {
     "session": "Session",
@@ -217,8 +218,7 @@
     "none": "Aucune tâche planifiée ne lance quoi que ce soit dans vos projets."
   },
   "cleanup": {
-    "shadowTitle": "Mode fantôme",
-    "shadowText": "Rien ne se ferme tout seul. Vos verdicts mesurent, par catégorie, où Claude Code pourrait agir seul. Les propositions de Claude arrivent aussi ici.",
+    "shadowText": "Rien ne se ferme tout seul. Vos verdicts montrent, catégorie par catégorie, où Claude Code pourrait agir seul.",
     "scan": "Analyser",
     "scanFailed": "Échec de l'analyse : {{error}}",
     "scanNothing": "Aucune proposition : rien d'orphelin, de dupliqué, d'inactif depuis longtemps ni de planifié et cassé.",
@@ -270,13 +270,16 @@
     "allProjects": "Tous les projets",
     "project": "Projet",
     "open": "ouverte",
-    "lasted": "a duré {{time}}",
-    "untitled": "Sans titre",
     "none": "Pas encore de session : elles apparaissent quand tu ouvres Claude Code depuis un terminal ou VS Code.",
     "noMatch": "Aucune session ne correspond à la recherche.",
     "resume": "Rouvrir",
     "resumeHint": "Ouvre un terminal dans son dossier avec claude --resume",
     "resumed": "Ouverte",
-    "resumeFailed": "Pas rouverte : {{error}}"
+    "resumeFailed": "Pas rouverte : {{error}}",
+    "empty": "Aucun prompt",
+    "started": "commencée {{when}}",
+    "lastActive": "dernière activité {{when}}",
+    "more": "plus",
+    "redescribe": "Redécrire"
   }
 }

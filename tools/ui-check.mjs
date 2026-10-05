@@ -137,10 +137,10 @@ try {
   await page.keyboard.press("Enter");
   await expectCount(pastRows, 2, "history rows of the blog project");
   await page.locator(".ant-select-clear").click();
-  const stripe = pastRows.filter({ hasText: "payments" });
+  const stripe = pastRows.filter({ hasText: "Webhooks" });
   await stripe.getByRole("button", { name: /^Reopen/ }).click();
   await stripe.getByRole("button", { name: /^Opened/ }).waitFor();
-  const gone = pastRows.filter({ hasText: "csv-v2" });
+  const gone = pastRows.filter({ hasText: "Bank sync" });
   await gone.getByRole("button", { name: /^Reopen/ }).click();
   await gone.getByRole("alert").getByText(/is gone/).waitFor();
   ok("history: search, a project, Reopen in its row, and why it couldn't when it can't");

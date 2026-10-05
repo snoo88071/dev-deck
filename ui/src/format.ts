@@ -61,6 +61,18 @@ export function matches(filter: string, parts: (string | number | null | undefin
   return filter.split(/\s+/).every((w) => hay.includes(w));
 }
 
+export const capital = (s: string) => s.charAt(0).toLocaleUpperCase(intlTag()) + s.slice(1);
+
+/**
+ * A description is "where it got to; what is left": two sentences, or two halves of one.
+ * Split at the first sentence end or semicolon, so what is left gets a line of its own.
+ */
+export function splitDescription(text: string): [string, string | null] {
+  const m = text.match(/^(.+?[.;])\s+(\S.*)$/s);
+  if (!m || m[1].length < 24) return [text, null];
+  return [m[1].replace(/;$/, "."), capital(m[2].trim())];
+}
+
 /* ---------- scheduled tasks ---------- */
 
 /** Rust's local times (`YYYY-MM-DDTHH:MM:SS`, no offset) read as local, as they are. */

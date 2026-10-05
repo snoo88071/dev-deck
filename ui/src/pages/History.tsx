@@ -3,19 +3,27 @@
  * found by what it was about (its description, title, prompts, project) instead of its id,
  * and reopened with a click (a terminal in its folder with `claude --resume <id>`).
  * The automated ones (`claude -p`, the SDK) are not here.
+ *
+ * A row is one line, read like an inbox: the project, what it was about, when. A click opens
+ * the rest in place: what is left, the person's last words, branch, origin and dates,
+ * Describe. Reopen shows under the pointer, and always on an open row.
  */
-import { useState, type CSSProperties } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Button, Empty, Flex, Select, Tag, Tooltip, Typography, theme } from "antd";
-import { BranchesOutlined, CheckOutlined, CodeOutlined, ThunderboltOutlined } from "@ant-design/icons";
+import { Button, Flex, Select, Tooltip, Typography, theme } from "antd";
+import { CheckOutlined, CodeOutlined, ThunderboltOutlined } from "@ant-design/icons";
 import { api } from "../api";
-import { Mono } from "../components/bits";
-import { matches, since } from "../format";
+import { Mono, Nothing } from "../components/bits";
+import { agoSec, capital, matches, splitDescription } from "../format";
 import { intlTag } from "../i18n";
 import { useDeck } from "../store";
+import { useLook } from "../theme";
+import { inkOf } from "../palette";
 import type { Past, PastRow } from "../types";
 
 const KIND_KEY = { terminal: "sessions.kindTerminal", vscode: "sessions.kindVscode" } as const;
+/** The reading column: past this a line of prose is too long to follow. */
+export const HISTORY_WIDTH = 1080;
 
 /** The local day a session was last written, as `YYYY-MM-DD`: the groups. */
 function dayOf(epoch: number): string {
@@ -28,11 +36,15 @@ function startedSec(p: Past): number | null {
   return Number.isNaN(t) ? null : t / 1000;
 }
 
+
 export function HistoryPage({ narrow }: { narrow: boolean }) {
   const { token } = theme.useToken();
   const { t } = useTranslation();
+  const { dark } = useLook();
+  const k = inkOf(dark);
   const deck = useDeck();
   const [project, setProject] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string[]>([]);
   const [describing, setDescribing] = useState<string[]>([]);
   const [opening, setOpening] = useState<string[]>([]);
   /** Reopened just now: the button says so for a moment, where it was pressed. */
@@ -61,6 +73,8 @@ export function HistoryPage({ narrow }: { narrow: boolean }) {
     await deck.loadSessions();
   };
 
+  const toggle = (id: string) => setExpanded((x) => (x.includes(id) ? x.filter((y) => y !== id) : [...x, id]));
+
   const open = new Set(deck.sessions.map((r) => r.session.session_id).filter(Boolean));
   // The projects, most recently used first.
   const projects = [...new Set(deck.past.map((r) => r.past.project).filter((x): x is string => !!x))];
@@ -74,7 +88,7 @@ export function HistoryPage({ narrow }: { narrow: boolean }) {
     if (day === today) return t("history.today");
     if (day === yesterday) return t("history.yesterday");
     const [y, m, d] = day.split("-").map(Number);
-    return new Intl.DateTimeFormat(intlTag(), { weekday: "long", day: "numeric", month: "long" }).format(new Date(y, m - 1, d));
+    return capital(new Intl.DateTimeFormat(intlTag(), { weekday: "long", day: "numeric", month: "long" }).format(new Date(y, m - 1, d)));
   };
   const days: [string, PastRow[]][] = [];
   for (const r of rows) {
@@ -83,74 +97,97 @@ export function HistoryPage({ narrow }: { narrow: boolean }) {
     else days.push([day, [r]]);
   }
   const clock = new Intl.DateTimeFormat(intlTag(), { hour: "2-digit", minute: "2-digit" });
+  const longDate = new Intl.DateTimeFormat(intlTag(), { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
-  const actions = narrow ? "auto" : `${on ? 200 : 112}px`;
-  const grid: CSSProperties = {
-    display: "grid", alignItems: "center", columnGap: narrow ? 12 : 20,
-    gridTemplateColumns: narrow ? `minmax(0,1fr) ${actions}` : `minmax(0,1fr) 140px ${actions}`,
-  };
-  const dayHead: CSSProperties = { display: "block", margin: "0 0 8px", fontSize: 12, fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase", color: token.colorTextSecondary };
+  // dot · project · what it was about · time, then the action column (Reopen), fixed so it never moves.
+  const line: CSSProperties = narrow
+    ? { gridTemplateColumns: "8px minmax(0,1fr) auto", columnGap: 10, rowGap: 2 }
+    : { gridTemplateColumns: "8px 168px minmax(0,1fr) 72px", columnGap: 16 };
+  const inset = narrow ? 8 : 12;
+  /** Where the details start: under "what it was about". */
+  const indent = narrow ? 18 : 8 + 16 + 168 + 16;
 
-  if (!deck.past.length) return <Empty description={t("history.none")} />;
+  if (!deck.past.length) return <Nothing text={t("history.none")} />;
   return (
-    <Flex vertical gap={16}>
-      <Select allowClear showSearch value={project} onChange={(v) => setProject(v ?? null)} placeholder={t("history.allProjects")}
-        aria-label={t("history.project")} options={projects.map((p) => ({ value: p, label: p }))} style={{ width: narrow ? "100%" : 260 }} />
-      {!rows.length ? <Empty description={t("history.noMatch")} /> : null}
+    <div style={{ maxWidth: HISTORY_WIDTH, marginInline: "auto" }}>
+      <Flex align="center" gap={12} wrap style={{ marginBottom: 6 }}>
+        <Select allowClear showSearch value={project} onChange={(v) => setProject(v ?? null)} placeholder={t("history.allProjects")}
+          variant="filled" aria-label={t("history.project")} options={projects.map((p) => ({ value: p, label: p }))} style={{ width: narrow ? "100%" : 220 }} />
+        {project || deck.filter ? <Typography.Text type="secondary" style={{ fontSize: 13 }}>{t("count.session", { count: rows.length })}</Typography.Text> : null}
+      </Flex>
+      {!rows.length ? <Nothing text={t("history.noMatch")} style={{ marginTop: 32 }} /> : null}
       {days.map(([day, list]) => (
-        <section key={day} aria-label={dayLabel(day)}>
-          <Typography.Text style={dayHead}>{dayLabel(day)}</Typography.Text>
-          <ul style={{ listStyle: "none", margin: 0, padding: 0, background: token.colorBgContainer, border: `1px solid ${token.colorBorderSecondary}`, borderRadius: token.borderRadiusLG, overflow: "hidden" }}>
-            {list.map(({ past: p, description: d, description_fresh: fresh }, i) => {
-              const isOpen = open.has(p.session_id);
+        <section key={day} aria-label={dayLabel(day)} style={{ marginInline: -inset }}>
+          <div className="dd-day" style={{ paddingInline: inset }}>
+            <Typography.Text strong style={{ fontSize: 13 }}>{dayLabel(day)}</Typography.Text>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>{t("count.session", { count: list.length })}</Typography.Text>
+          </div>
+          <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+            {list.map(({ past: p, description: d, description_fresh: fresh }) => {
+              const id = p.session_id;
+              const isOpen = open.has(id);
+              const unfolded = expanded.includes(id);
               const start = startedSec(p);
-              const done = opened.includes(p.session_id);
-              const headline = d?.text ?? p.title ?? p.first_prompt ?? t("history.untitled");
+              const done = opened.includes(id);
+              const said = !!(d || p.title || p.first_prompt || p.last_prompt);
+              const [state, next] = d ? splitDescription(d.text) : [p.title ?? p.first_prompt ?? t("history.empty"), null];
+              const time = isOpen && Date.now() / 1000 - p.ended < 3600 ? agoSec(p.ended) : clock.format(new Date(p.ended * 1000));
+              const meta: ReactNode[] = [
+                p.branch ? <Mono key="b" style={{ fontSize: 12 }}>{p.branch}</Mono> : null,
+                <span key="k">{t(KIND_KEY[p.kind])}</span>,
+                start ? <span key="s">{t("history.started", { when: longDate.format(new Date(start * 1000)) })}</span> : null,
+                <span key="e">{t("history.lastActive", { when: longDate.format(new Date(p.ended * 1000)) })}</span>,
+              ].filter(Boolean);
               return (
-                <li key={p.session_id} className="dd-past" style={{ padding: "12px 16px", borderTop: i ? `1px solid ${token.colorBorderSecondary}` : undefined }}>
-                  <div style={grid}>
-                    <Flex vertical gap={3} style={{ minWidth: 0 }}>
-                      <Flex gap={8} align="center" wrap>
-                        <Typography.Text strong>{p.project ?? "?"}</Typography.Text>
-                        <Tag style={{ marginInlineEnd: 0 }}>{t(KIND_KEY[p.kind])}</Tag>
-                        {p.branch ? <Mono type="secondary" style={{ fontSize: 12 }}><BranchesOutlined aria-hidden /> {p.branch}</Mono> : null}
-                        {isOpen ? <Tag color="success" style={{ marginInlineEnd: 0 }}>{t("history.open")}</Tag> : null}
-                        {narrow ? <Typography.Text type="secondary" style={{ fontSize: 12 }}>{clock.format(new Date(p.ended * 1000))}</Typography.Text> : null}
-                      </Flex>
-                      <Typography.Text type={d && !fresh ? "secondary" : undefined} ellipsis={{ tooltip: headline }} style={{ maxWidth: "100%" }}>{headline}</Typography.Text>
-                      {p.last_prompt ? (
-                        <Typography.Text type="secondary" ellipsis={{ tooltip: p.last_prompt }} style={{ fontSize: token.fontSizeSM, maxWidth: "100%" }}>» {p.last_prompt}</Typography.Text>
-                      ) : null}
-                    </Flex>
-                    {narrow ? null : (
-                      <Flex vertical align="flex-end" gap={2}>
-                        <Typography.Text style={{ fontVariantNumeric: "tabular-nums" }}>{clock.format(new Date(p.ended * 1000))}</Typography.Text>
-                        {start && p.ended > start ? (
-                          <Typography.Text type="secondary" style={{ fontSize: 12 }}>{t("history.lasted", { time: since(p.ended - start) })}</Typography.Text>
-                        ) : null}
-                      </Flex>
-                    )}
-                    <Flex justify="flex-end" align="center" gap={4}>
-                      {on ? (
-                        <Tooltip title={t("sessions.describeHint")}>
-                          <Button size="small" type="text" icon={<ThunderboltOutlined aria-hidden />} loading={describing.includes(p.session_id)}
-                            aria-label={t("sessions.describe")} onClick={() => describeNow(p.session_id)}>{narrow ? null : t("sessions.describe")}</Button>
-                        </Tooltip>
-                      ) : null}
+                <li key={id} className={`dd-past dd-row${unfolded ? " dd-unfolded" : ""}`}
+                  style={{ borderBottom: `1px solid ${token.colorBorderSecondary}`, background: unfolded ? token.colorFillTertiary : undefined }}>
+                  <div style={{ display: "grid", gridTemplateColumns: `minmax(0,1fr) ${narrow ? "auto" : "92px"}`, alignItems: "center", columnGap: 12, padding: `11px ${inset}px` }}>
+                    <button type="button" className="dd-bare" aria-expanded={unfolded} onClick={() => toggle(id)} style={line}>
+                      <span aria-label={isOpen ? t("history.open") : undefined} role={isOpen ? "img" : undefined}
+                        style={{ width: 7, height: 7, borderRadius: "50%", background: isOpen ? k.greenFill : "transparent", alignSelf: "center" }} />
+                      <Typography.Text strong ellipsis style={{ minWidth: 0 }}>{p.project ?? "?"}</Typography.Text>
+                      {narrow ? <Typography.Text type="secondary" className="dd-num" style={{ fontSize: 12.5, whiteSpace: "nowrap" }}>{time}</Typography.Text> : null}
+                      <Typography.Text ellipsis={!unfolded} type={said ? undefined : "secondary"}
+                        style={{ minWidth: 0, gridColumn: narrow ? "2 / 4" : undefined, color: said ? (unfolded ? token.colorText : token.colorTextSecondary) : undefined, fontStyle: said ? undefined : "italic" }}>
+                        {state}
+                      </Typography.Text>
+                      {narrow ? null : <Typography.Text type="secondary" className="dd-num" style={{ fontSize: 13, textAlign: "right", whiteSpace: "nowrap" }}>{time}</Typography.Text>}
+                    </button>
+                    <span style={{ display: "inline-flex", justifyContent: "flex-end" }}>
                       {isOpen ? null : (
                         <Tooltip title={t("history.resumeHint")}>
-                          <Button size="small" loading={opening.includes(p.session_id)} onClick={() => reopen(p.session_id)}
+                          <Button size="small" loading={opening.includes(id)} onClick={() => reopen(id)}
+                            className={unfolded || done || opening.includes(id) ? undefined : "dd-quiet"}
                             icon={done ? <CheckOutlined aria-hidden /> : <CodeOutlined aria-hidden />}
                             aria-label={`${done ? t("history.resumed") : t("history.resume")} ${p.project ?? ""}`.trim()}
                             style={done ? { color: token.colorSuccess, borderColor: token.colorSuccess } : undefined}>
-                            {done ? t("history.resumed") : t("history.resume")}
+                            {narrow && !done ? null : done ? t("history.resumed") : t("history.resume")}
                           </Button>
                         </Tooltip>
                       )}
-                    </Flex>
+                    </span>
                   </div>
-                  {failed[p.session_id] ? (
-                    <Typography.Text type="danger" role="alert" style={{ display: "block", marginTop: 6, fontSize: token.fontSizeSM }}>{failed[p.session_id]}</Typography.Text>
+                  {unfolded ? (
+                    <Flex vertical gap={10} style={{ padding: `2px ${inset}px 16px ${inset + indent}px`, maxWidth: 760 + inset + indent }}>
+                      {/* The line above now shows in full; what is left gets its own line. */}
+                      {next ? <Typography.Paragraph type={fresh ? undefined : "secondary"} style={{ margin: 0, fontWeight: 500 }}>{next}</Typography.Paragraph> : null}
+                      {p.last_prompt ? (
+                        <Typography.Paragraph type="secondary" ellipsis={{ rows: 3, expandable: true, symbol: t("history.more") }}
+                          style={{ margin: 0, fontSize: 13, paddingInlineStart: 10, borderInlineStart: `2px solid ${token.colorBorder}` }}>
+                          {p.last_prompt}
+                        </Typography.Paragraph>
+                      ) : null}
+                      <Flex gap={16} wrap style={{ fontSize: 12.5, color: token.colorTextTertiary, rowGap: 2 }}>{meta}</Flex>
+                      {on && said ? (
+                        <div>
+                          <Button size="small" type="text" icon={<ThunderboltOutlined aria-hidden />} loading={describing.includes(id)}
+                            onClick={() => describeNow(id)} style={{ marginInlineStart: -7 }}>{d ? t("history.redescribe") : t("sessions.describe")}</Button>
+                        </div>
+                      ) : null}
+                    </Flex>
+                  ) : null}
+                  {failed[id] ? (
+                    <Typography.Text type="danger" role="alert" style={{ display: "block", padding: `0 ${inset}px 12px ${inset + indent}px`, fontSize: 13 }}>{failed[id]}</Typography.Text>
                   ) : null}
                 </li>
               );
@@ -158,6 +195,6 @@ export function HistoryPage({ narrow }: { narrow: boolean }) {
           </ul>
         </section>
       ))}
-    </Flex>
+    </div>
   );
 }

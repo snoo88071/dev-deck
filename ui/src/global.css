@@ -1,13 +1,64 @@
+/* The colors come from palette.ts as --dd-* variables on <html> (main.tsx). */
+body {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "kern";
+}
+/* Figures that line up in columns. */
+.dd-num { font-variant-numeric: tabular-nums; }
+
 /* Visible to screen readers only (column headers of icon-only action cells). */
 .sr-only {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
 }
+
+/* Focus: one ring, ink, only from the keyboard. A click leaves no ring behind. */
+:focus-visible { outline: 2px solid var(--dd-focus); outline-offset: 2px; }
+.ant-menu:focus-visible, .ant-menu-item:focus-visible { outline: 2px solid var(--dd-focus) !important; outline-offset: -2px !important; }
+.ant-menu-item:focus:not(:focus-visible), .ant-btn:focus:not(:focus-visible) { outline: none !important; }
+.ant-btn:focus-visible { outline: 2px solid var(--dd-focus) !important; outline-offset: 1px !important; }
+
+/* Secondary actions of a row sit quiet until the row is under the pointer or holds the focus.
+   Without a pointer that hovers (touch), they always show. */
+.dd-quiet { opacity: 0; transition: opacity .12s ease; }
+.dd-row:hover .dd-quiet, .dd-row:focus-within .dd-quiet,
+tr:hover .dd-quiet, tr:focus-within .dd-quiet { opacity: 1; }
+@media (hover: none) { .dd-quiet { opacity: 1; } }
+
+/* A destructive icon is ink until you point at it: red only when it is about to be pressed. */
+.ant-btn.dd-danger { color: var(--dd-ink3) !important; }
+.ant-btn.dd-danger:hover:not(:disabled) { color: var(--dd-red) !important; background: var(--dd-redTint) !important; }
+
+/* A whole line that is a button (a History row): no chrome, the focus ring when reached by keyboard. */
+.dd-bare {
+  all: unset; box-sizing: border-box; cursor: pointer; display: grid; align-items: baseline; min-width: 0; width: 100%;
+}
+.dd-bare:focus-visible { outline: 2px solid var(--dd-focus); outline-offset: 4px; border-radius: 4px; }
+
+/* A list row: a hairline between rows, the hover a shade of the paper. */
+.dd-row { transition: background-color .12s ease; }
+.dd-row:hover { background: var(--dd-hover); }
+
+/* Tables sit on the paper: no frame, hairlines only, sentence-case headers. */
+.ant-table-wrapper .ant-table { background: transparent; }
+.ant-table-wrapper .ant-table-thead > tr > th {
+  font-weight: 500; font-size: 12px; border-bottom: 1px solid var(--dd-line) !important;
+}
+.ant-table-wrapper .ant-table-thead > tr > th::before { display: none; }
+
+/* A day of the History stays at the top while its sessions scroll under it. */
+.dd-day {
+  position: sticky; top: 0; z-index: 2; background: var(--dd-paper);
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 14px 0 8px; border-bottom: 1px solid var(--dd-line);
+}
+
 /* Reduced motion is handled by antd's `motion` token (see palette.ts), not here:
    forcing `animation: none` leaves antd waiting for an animationend that never comes,
    and a closed dialog stays on top of the page. */
 
-/* Direction A's own motion (components/weight.tsx). Only these classes, never a blanket
+/* The panel's own motion (components/weight.tsx). Only these classes, never a blanket
    rule (above): with reduced motion they stop, and nothing waits for their end. */
 @keyframes dd-pulse { 50% { opacity: 0.2; } }
 .dd-pulse { animation: dd-pulse 1.6s ease-in-out infinite; }
@@ -21,14 +72,11 @@
 /* Closed with its gain showing: the row folds once the gain has been seen. */
 .dd-fold.gone.late { transition-delay: 1.3s; }
 .dd-fold > * { min-height: 0; overflow: hidden; }
-.dd-close-idle:not(:disabled):hover { filter: brightness(1.12); }
-/* A weighed table row (Processes): its bar spans the whole row, behind the cells. */
-.dd-weighed { position: relative; z-index: 0; }
-.dd-weighed > td:first-child { position: static !important; }
+.dd-close-idle:not(:disabled):hover { filter: brightness(1.08); }
 /* A stopped project's row: its gain shows, then it fades. */
 .dd-row-leaving { opacity: 0; transition: opacity .4s ease 1.3s; }
 @media (prefers-reduced-motion: reduce) {
-  .dd-fold { transition: none; }
+  .dd-fold, .dd-row, .dd-quiet { transition: none; }
   /* No folding or fading: the closed row keeps showing its gain until it goes. */
   .dd-fold.gone.late { grid-template-rows: 1fr; opacity: 1; }
   .dd-row-leaving { opacity: 1; transition: none; }

@@ -2,16 +2,16 @@
  * Processes as a tree table: project → root → its children. Claude Code's MCP
  * servers sit under their own row, and groups made only of them get a table of
  * their own below ("Launched by Claude Code"). Each project row carries its weight:
- * a bar as long as its memory, the figure in proportion, its CPU over 24 hours;
+ * its memory with a meter against the heaviest project, its CPU over 24 hours;
  * amber when it belongs to an idle session, or to one that is gone.
  */
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Empty, Flex, Table, Tag, Tooltip, Typography, theme, type TableColumnsType } from "antd";
+import { Flex, Table, Tag, Tooltip, Typography, type TableColumnsType } from "antd";
 import { CloseOutlined, CodeOutlined, FieldTimeOutlined, FolderOpenOutlined, PoweroffOutlined, ReloadOutlined } from "@ant-design/icons";
-import { IconButton, Mono, PortTag } from "../components/bits";
+import { IconButton, Mono, Nothing, PortTag, shortPath } from "../components/bits";
 import { useActions } from "../components/actions";
-import { GainFigure, MemFigure, Sparkline, WeightBar, isDormant, useLeaving } from "../components/weight";
+import { MemCell, Sparkline, isDormant, useLeaving } from "../components/weight";
 import { chainOf, matches, mb, serversOf, since } from "../format";
 import { useDeck } from "../store";
 import type { CpuHistory, Group, JobGroup, Proc, SessionRow } from "../types";
@@ -64,12 +64,13 @@ function openKeys(row: Row): string[] {
   return row.children?.length ? [row.key, ...row.children.flatMap(openKeys)] : [];
 }
 
-function ProcessTable({ groups, narrow, jobs, showJobs, max, sessions, history }: {
+function ProcessTable({ groups, narrow, compact, jobs, showJobs, max, sessions, history }: {
   groups: Group[]; narrow: boolean; jobs: JobGroup[]; showJobs: (root: string) => void;
+  /** A mid-size window: the uptime goes, so the names keep their room. */
+  compact: boolean;
   /** The heaviest project on the page: the scale of the bars. */
   max: number; sessions: SessionRow[]; history: CpuHistory;
 }) {
-  const { token } = theme.useToken();
   const { t } = useTranslation();
   const { stop, restart, openFolder } = useActions();
   const [expanded, setExpanded] = useState<string[]>([]);
@@ -89,20 +90,19 @@ function ProcessTable({ groups, narrow, jobs, showJobs, max, sessions, history }
       const mine = r.g.by_claude ? r.g.procs : r.g.procs.filter((p) => !byClaude(p));
       const nJobs = jobs.find((j) => sameRoot(r.g.root, j.root))?.jobs.length ?? 0;
       return (
-        <span style={{ display: "inline-flex", flexDirection: "column", verticalAlign: "middle", maxWidth: room, minWidth: 0 }}>
-          <WeightBar share={share(r.g)} dormant={isForgotten(r.g, sessions)} drain={gains[groupKey(r.g)] != null} />
-          <Flex gap={6} align="center" wrap>
+        <span style={{ display: "inline-flex", flexDirection: "column", gap: 1, verticalAlign: "middle", maxWidth: room, minWidth: 0 }}>
+          <Flex gap={10} align="baseline" wrap style={{ rowGap: 0 }}>
             <Typography.Text strong>{r.g.name}</Typography.Text>
-            <Mono type="secondary">{r.g.by_claude ? serversOf(mine) : chainOf(mine)}</Mono>
+            <Mono type="secondary" style={{ fontSize: 12 }}>{r.g.by_claude ? serversOf(mine) : chainOf(mine)}</Mono>
             {nJobs ? (
               <Tag icon={<FieldTimeOutlined aria-hidden />} role="button" tabIndex={0} title={t("processes.jobsHint")}
                 onClick={() => showJobs(r.g.root!)} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && showJobs(r.g.root!)}
-                style={{ cursor: "pointer", marginInlineEnd: 0 }}>
+                style={{ cursor: "pointer", marginInlineEnd: 0, alignSelf: "center" }}>
                 {t("processes.jobs", { count: nJobs })}
               </Tag>
             ) : null}
           </Flex>
-          {r.g.root ? <Mono type="secondary" ellipsis style={{ fontSize: 12 }}>{r.g.root}</Mono> : <Typography.Text type="secondary" italic>{t("processes.unknownFolder")}</Typography.Text>}
+          {r.g.root ? <Mono type="secondary" ellipsis style={{ fontSize: 12 }}>{shortPath(r.g.root)}</Mono> : <Typography.Text type="secondary" italic style={{ fontSize: 12 }}>{t("processes.unknownFolder")}</Typography.Text>}
         </span>
       );
     }
@@ -123,38 +123,37 @@ function ProcessTable({ groups, narrow, jobs, showJobs, max, sessions, history }
     );
   };
 
+  // Ports only when something here listens on one: an empty column is noise.
+  const anyPorts = groups.some((g) => g.ports.length || g.procs.some((p) => p.ports.length));
   const columns: TableColumnsType<Row> = [
     { title: t("processes.name"), key: "name", onCell: () => ({ style: { whiteSpace: "nowrap", overflow: "hidden" } }), render: (_, r) => nameCell(r) },
-    {
+    ...(anyPorts ? [{
       title: t("processes.ports"), key: "ports", width: 92,
-      render: (_, r) => {
+      render: (_: unknown, r: Row) => {
         const ports = r.kind === "group" ? r.g.ports : r.kind === "proc" ? r.p.ports : [];
         return <Flex gap={4} wrap>{ports.map((x) => <PortTag key={x} port={x} />)}</Flex>;
       },
-    },
+    }] : []),
     ...(narrow ? [] : [
       {
         title: t("processes.memory"), key: "mem", width: 112, align: "right" as const,
         render: (_: unknown, r: Row) => {
           if (r.kind === "mcp") return null;
-          if (r.kind === "proc") return mb(r.p.memory);
-          const gain = gains[groupKey(r.g)];
-          return gain != null
-            ? <GainFigure bytes={gain} size={Math.max(20, 14 + 10 * share(r.g))} />
-            : <MemFigure bytes={r.g.memory} share={share(r.g)} dormant={isForgotten(r.g, sessions)} />;
+          if (r.kind === "proc") return <Typography.Text type="secondary" className="dd-num" style={{ fontSize: 13 }}>{mb(r.p.memory)}</Typography.Text>;
+          return <MemCell bytes={r.g.memory} share={share(r.g)} dormant={isForgotten(r.g, sessions)} gain={gains[groupKey(r.g)]} />;
         },
       },
       {
         // The CPU over time, never the instant figure: what keeps working while nobody looks.
         title: t("sessions.cpu24"), key: "cpu", width: 126,
         render: (_: unknown, r: Row) => (r.kind === "group"
-          ? <Sparkline values={history[r.g.root ?? r.g.name]} dormant={isForgotten(r.g, sessions)} width={110} height={24} />
+          ? <Sparkline values={history[r.g.root ?? r.g.name]} dormant={isForgotten(r.g, sessions)} width={104} height={24} />
           : null),
       },
-      {
+      ...(compact ? [] : [{
         title: t("processes.uptime"), key: "up", width: 104, align: "right" as const,
-        render: (_: unknown, r: Row) => (r.kind === "mcp" ? null : <Typography.Text type="secondary">{since(r.kind === "group" ? r.g.run_time : r.p.run_time)}</Typography.Text>),
-      },
+        render: (_: unknown, r: Row) => (r.kind === "mcp" ? null : <Typography.Text type="secondary" className="dd-num" style={{ fontSize: 13 }}>{since(r.kind === "group" ? r.g.run_time : r.p.run_time)}</Typography.Text>),
+      }]),
     ]),
     {
       title: <span className="sr-only">{t("common.actions")}</span>, key: "acts", width: narrow ? 76 : 104, align: "right",
@@ -165,9 +164,11 @@ function ProcessTable({ groups, narrow, jobs, showJobs, max, sessions, history }
           if (r.leaving) return null;
           const mine = g.by_claude ? g.procs : g.procs.filter((p) => !byClaude(p));
           return (
-            <Flex justify="flex-end">
-              {g.root ? <IconButton title={t("common.openFolder")} icon={FolderOpenOutlined} onClick={() => openFolder(g.root!, false)} /> : null}
-              {g.root && !narrow ? <IconButton title={t("common.openInEditor")} icon={CodeOutlined} onClick={() => openFolder(g.root!, true)} /> : null}
+            <Flex justify="flex-end" align="center">
+              <span className="dd-quiet" style={{ display: "inline-flex" }}>
+                {g.root ? <IconButton title={t("common.openFolder")} icon={FolderOpenOutlined} onClick={() => openFolder(g.root!, false)} /> : null}
+                {g.root && !narrow ? <IconButton title={t("common.openInEditor")} icon={CodeOutlined} onClick={() => openFolder(g.root!, true)} /> : null}
+              </span>
               <IconButton danger icon={PoweroffOutlined}
                 title={g.by_claude ? t("processes.stopMcp") : t("processes.stopProject")}
                 // Claude Code's MCP servers are kept aside: stopping them takes tools away from an open session.
@@ -177,7 +178,7 @@ function ProcessTable({ groups, narrow, jobs, showJobs, max, sessions, history }
         }
         const p = r.p;
         return (
-          <Flex justify="flex-end">
+          <Flex justify="flex-end" className="dd-quiet">
             {/* Restarting an MCP server outside Claude is pointless: Claude relaunches it itself. */}
             {p.depth === 0 && p.cwd && !byClaude(p)
               ? <IconButton title={t("processes.restartProc")} icon={ReloadOutlined} onClick={() => restart(r.g, p)} />
@@ -190,9 +191,8 @@ function ProcessTable({ groups, narrow, jobs, showJobs, max, sessions, history }
   ];
 
   return (
-    <Table<Row> size="small" pagination={false} columns={columns} dataSource={data} tableLayout="fixed"
-      style={{ borderRadius: token.borderRadiusLG, overflow: "hidden" }}
-      rowClassName={(r) => (r.kind === "group" ? `dd-weighed${r.leaving ? " dd-row-leaving" : ""}` : "")}
+    <Table<Row> size="small" pagination={false} style={{ marginInline: -10 }} columns={columns} dataSource={data} tableLayout="fixed"
+      rowClassName={(r) => (r.kind === "group" && r.leaving ? "dd-row-leaving" : "")}
       expandable={{
         expandedRowKeys: expanded,
         indentSize: 14,
@@ -204,7 +204,7 @@ function ProcessTable({ groups, narrow, jobs, showJobs, max, sessions, history }
   );
 }
 
-export function ProcessesPage({ narrow, showJobs }: { narrow: boolean; showJobs: (root: string) => void }) {
+export function ProcessesPage({ narrow, compact, showJobs }: { narrow: boolean; compact: boolean; showJobs: (root: string) => void }) {
   const { t } = useTranslation();
   const deck = useDeck();
   const f = deck.filter;
@@ -217,17 +217,21 @@ export function ProcessesPage({ narrow, showJobs }: { narrow: boolean; showJobs:
   const weigh = { max, sessions: deck.sessions, history: deck.history };
 
   if (deck.loaded && !visible.length) {
-    return <Empty description={f ? t("processes.noMatch") : t("processes.none")} />;
+    return <Nothing text={f ? t("processes.noMatch") : t("processes.none")} />;
   }
   return (
-    <Flex vertical gap={20}>
-      {mine.length ? <ProcessTable groups={mine} narrow={narrow} jobs={deck.jobs} showJobs={showJobs} {...weigh} /> : null}
+    <Flex vertical gap={28}>
+
+      {mine.length ? <ProcessTable groups={mine} narrow={narrow} compact={compact} jobs={deck.jobs} showJobs={showJobs} {...weigh} /> : null}
       {claude.length ? (
         <section aria-labelledby="claude-title">
-          <Typography.Text id="claude-title" type="secondary" style={{ display: "block", marginBottom: 8, fontSize: 12, fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase" }}>
-            {t("processes.launchedByClaude", { servers: t("count.mcpServer", { count: nClaude }), folders: t("count.folder", { count: claude.length }) })}
-          </Typography.Text>
-          <ProcessTable groups={claude} narrow={narrow} jobs={deck.jobs} showJobs={showJobs} {...weigh} />
+          <Flex id="claude-title" align="baseline" gap={10} style={{ marginBottom: 6 }}>
+            <Typography.Text strong style={{ fontSize: 13 }}>{t("processes.launchedByClaude")}</Typography.Text>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              {t("processes.launchedCount", { servers: t("count.mcpServer", { count: nClaude }), folders: t("count.folder", { count: claude.length }) })}
+            </Typography.Text>
+          </Flex>
+          <ProcessTable groups={claude} narrow={narrow} compact={compact} jobs={deck.jobs} showJobs={showJobs} {...weigh} />
         </section>
       ) : null}
     </Flex>

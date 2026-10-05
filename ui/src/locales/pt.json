@@ -26,11 +26,11 @@
     "cleanupNone": "Nada aguardando veredito",
     "jobsBroken_one": "{{count}} para revisar",
     "jobsBroken_other": "{{count}} para revisar",
-    "filterSessions": "Filtrar sessões",
-    "filterProcesses": "Filtrar projetos, comandos, portas",
-    "filterJobs": "Filtrar tarefas, scripts, projetos",
-    "filterCleanup": "Filtrar propostas",
-    "filterHistory": "Buscar títulos, prompts, projetos"
+    "filterSessions": "Buscar sessões",
+    "filterProcesses": "Buscar processos ou portas",
+    "filterJobs": "Buscar tarefas",
+    "filterCleanup": "Buscar propostas",
+    "filterHistory": "Buscar sessões"
   },
   "count": {
     "project_one": "{{count}} projeto",
@@ -87,7 +87,7 @@
     "byTask": "Iniciado pela tarefa agendada \"{{name}}\"",
     "mcpRow_one": "{{count}} processo iniciado pelo Claude Code (servidor MCP)",
     "mcpRow_other": "{{count}} processos iniciados pelo Claude Code (servidores MCP)",
-    "launchedByClaude": "Iniciados pelo Claude Code · {{servers}} em {{folders}}",
+    "launchedByClaude": "Iniciados pelo Claude Code",
     "stopProject": "Parar o projeto (não os servidores MCP do Claude Code)",
     "stopProjectTitle": "Parar \"{{name}}\"?",
     "stopMcp": "Parar estes servidores MCP",
@@ -96,7 +96,8 @@
     "stopProc": "Parar o processo {{pid}} e seus filhos",
     "stopProcTitle": "Parar o processo {{pid}}?",
     "noMatch": "Nada corresponde ao filtro.",
-    "none": "Nenhum processo de desenvolvimento rodando. Aproveite a noite."
+    "none": "Nenhum processo de desenvolvimento rodando. Aproveite a noite.",
+    "launchedCount": "{{servers}} em {{folders}}"
   },
   "sessions": {
     "session": "Sessão",
@@ -217,8 +218,7 @@
     "none": "Nenhuma tarefa agendada executa algo nos seus projetos."
   },
   "cleanup": {
-    "shadowTitle": "Modo sombra",
-    "shadowText": "Nada fecha sozinho. Seus vereditos medem, por categoria, onde o Claude Code poderia agir por conta própria. As propostas do Claude também chegam aqui.",
+    "shadowText": "Nada fecha sozinho. Seus vereditos mostram, categoria por categoria, onde o Claude Code poderia agir sozinho.",
     "scan": "Verificar agora",
     "scanFailed": "A verificação falhou: {{error}}",
     "scanNothing": "Nenhuma proposta: nada órfão, duplicado, inativo há muito tempo ou agendado e quebrado.",
@@ -270,13 +270,16 @@
     "allProjects": "Todos os projetos",
     "project": "Projeto",
     "open": "aberta",
-    "lasted": "durou {{time}}",
-    "untitled": "Sem título",
     "none": "Ainda não há sessões: elas aparecem quando você abre o Claude Code num terminal ou no VS Code.",
     "noMatch": "Nenhuma sessão corresponde à busca.",
     "resume": "Reabrir",
     "resumeHint": "Abre um terminal na pasta dela com claude --resume",
     "resumed": "Aberta",
-    "resumeFailed": "Não reaberta: {{error}}"
+    "resumeFailed": "Não reaberta: {{error}}",
+    "empty": "Sem prompts",
+    "started": "começou {{when}}",
+    "lastActive": "última atividade {{when}}",
+    "more": "mais",
+    "redescribe": "Descrever de novo"
   }
 }

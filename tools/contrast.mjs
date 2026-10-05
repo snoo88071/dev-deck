@@ -25,7 +25,7 @@ try {
       await page.locator(".ant-menu-item").nth(i).click();
       await page.locator(".ant-table-row, .dd-session, .dd-past").first().waitFor();
       // Open what can be opened, so detail rows are measured too.
-      for (const icon of await page.locator(".ant-table-row-expand-icon-collapsed, .dd-expand[aria-expanded=false]").all()) await icon.click().catch(() => {});
+      for (const icon of await page.locator(".ant-table-row-expand-icon-collapsed, .dd-expand[aria-expanded=false], .dd-past button[aria-expanded=false]").all()) await icon.click().catch(() => {});
       await page.mouse.move(1279, 899);
       await page.waitForTimeout(300);
       const rows = await page.evaluate(measure);
