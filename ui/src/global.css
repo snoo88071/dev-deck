@@ -15,7 +15,11 @@ body {
 
 /* Focus: one ring, ink, only from the keyboard. A click leaves no ring behind. */
 :focus-visible { outline: 2px solid var(--dd-focus); outline-offset: 2px; }
-.ant-menu:focus-visible, .ant-menu-item:focus-visible { outline: 2px solid var(--dd-focus) !important; outline-offset: -2px !important; }
+/* The menu: WebView2 can show focus-visible after a click, so the item gets a quiet ring, not a heavy one:
+   the selected page is already a sheet of paper. */
+.ant-menu:focus-visible { outline: none !important; }
+.ant-menu-item:focus-visible { outline: none !important; box-shadow: inset 0 0 0 1.5px var(--dd-ink3) !important; }
+.ant-menu-item-selected { box-shadow: 0 0 0 1px var(--dd-edge), 0 1px 2px rgba(16, 24, 40, .05); }
 .ant-menu-item:focus:not(:focus-visible), .ant-btn:focus:not(:focus-visible) { outline: none !important; }
 .ant-btn:focus-visible { outline: 2px solid var(--dd-focus) !important; outline-offset: 1px !important; }
 
@@ -40,8 +44,25 @@ tr:hover .dd-quiet, tr:focus-within .dd-quiet { opacity: 1; }
 .dd-row { transition: background-color .12s ease; }
 .dd-row:hover { background: var(--dd-hover); }
 
-/* Tables sit on the paper: no frame, hairlines only, sentence-case headers. */
-.ant-table-wrapper .ant-table { background: transparent; }
+/* A panel: a sheet of paper on the canvas, one per list (a day of History, the sessions, a table).
+   Rows inside are separated by hairlines; the header band is a shade darker. */
+.dd-panel {
+  background: var(--dd-paper); border: 1px solid var(--dd-edge); border-radius: 10px; overflow: hidden;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .04);
+}
+:root[data-theme="dark"] .dd-panel { box-shadow: none; }
+.dd-list { list-style: none; margin: 0; padding: 0; }
+.dd-list > li + li { border-top: 1px solid var(--dd-line); }
+.dd-panel-head { background: var(--dd-head); border-bottom: 1px solid var(--dd-line); }
+
+/* Tables in a panel: sentence-case headers on the band. */
+.ant-table-wrapper.dd-panel .ant-table { background: transparent; border-radius: 0; }
+.ant-table-wrapper.dd-panel .ant-table-container { border-radius: 0 !important; }
+.ant-table-wrapper.dd-panel .ant-table-thead > tr > th { border-radius: 0 !important; }
+.ant-table-wrapper.dd-panel .ant-table-tbody > tr:last-child > td { border-bottom: none; }
+/* A project heading the rows under it (Scheduled): on the band, like a column header. */
+.ant-table-wrapper .ant-table-tbody > tr.dd-group-row > td { background: var(--dd-head); }
+.ant-table-wrapper .ant-table-tbody > tr.dd-group-row:hover > td { background: var(--dd-hover); }
 .ant-table-wrapper .ant-table-thead > tr > th {
   font-weight: 500; font-size: 12px; border-bottom: 1px solid var(--dd-line) !important;
 }
@@ -49,9 +70,9 @@ tr:hover .dd-quiet, tr:focus-within .dd-quiet { opacity: 1; }
 
 /* A day of the History stays at the top while its sessions scroll under it. */
 .dd-day {
-  position: sticky; top: 0; z-index: 2; background: var(--dd-paper);
+  position: sticky; top: 0; z-index: 2; background: var(--dd-canvas);
   display: flex; align-items: baseline; gap: 10px;
-  padding: 14px 0 8px; border-bottom: 1px solid var(--dd-line);
+  padding: 20px 2px 8px;
 }
 
 /* Reduced motion is handled by antd's `motion` token (see palette.ts), not here:

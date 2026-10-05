@@ -191,7 +191,7 @@ function ProcessTable({ groups, narrow, compact, jobs, showJobs, max, sessions, 
   ];
 
   return (
-    <Table<Row> size="small" pagination={false} style={{ marginInline: -10 }} columns={columns} dataSource={data} tableLayout="fixed"
+    <Table<Row> size="small" pagination={false} className="dd-panel" columns={columns} dataSource={data} tableLayout="fixed"
       rowClassName={(r) => (r.kind === "group" && r.leaving ? "dd-row-leaving" : "")}
       expandable={{
         expandedRowKeys: expanded,

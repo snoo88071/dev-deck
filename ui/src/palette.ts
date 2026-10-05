@@ -1,5 +1,5 @@
 /**
- * One sheet of paper, ink, and three colors that only ever mean a state:
+ * A canvas, panels of paper on it, ink, and three colors that only ever mean a state:
  * green is free or alive, amber is still (nobody working), red is danger.
  * What you can press is ink, never a color, so a color on screen always says something.
  * antd derives secondary text from the main one with transparency (45% fails WCAG AA),
@@ -11,7 +11,14 @@ import { MONO, SANS } from "./components/bits";
 
 /** The colors the pages draw with themselves (weight.tsx, the rows, global.css). */
 export interface Ink {
+  /** The page under the panels. */
+  canvas: string;
+  /** A panel: the lists and tables sit on it. */
   paper: string;
+  /** A panel's header band (column titles) and an opened row. */
+  head: string;
+  /** A panel's edge. */
+  edge: string;
   side: string;
   hover: string;
   line: string;
@@ -31,7 +38,8 @@ export interface Ink {
 }
 
 const LIGHT: Ink = {
-  paper: "#ffffff", side: "#f4f5f7", hover: "#f5f6f8", line: "#e9ebef", border: "#d6d9df",
+  canvas: "#f3f4f6", paper: "#ffffff", head: "#f9fafb", edge: "#e1e4e9",
+  side: "#eceef1", hover: "#f5f6f8", line: "#eceef1", border: "#d3d7de",
   ink: "#161a21", ink2: "#454c59", ink3: "#5b6371", focus: "#161a21",
   green: "#13773a", greenFill: "#2e9a5c", greenTint: "#e5f3ea",
   amber: "#965507", amberFill: "#c97a1a", amberTint: "#fbf0e1",
@@ -39,7 +47,8 @@ const LIGHT: Ink = {
 };
 
 const DARK: Ink = {
-  paper: "#121419", side: "#0d0f13", hover: "#191c22", line: "#23272f", border: "#343a46",
+  canvas: "#0f1115", paper: "#171a20", head: "#1d2128", edge: "#2a2f39",
+  side: "#0b0c0f", hover: "#1e222a", line: "#242830", border: "#383e4a",
   ink: "#e8eaee", ink2: "#b7bdc8", ink3: "#9aa2b0", focus: "#e8eaee",
   green: "#4cc584", greenFill: "#3aa86c", greenTint: "#15291e",
   amber: "#f0a64a", amberFill: "#d08a34", amberTint: "#2b2012",
@@ -147,7 +156,7 @@ export function themeConfig(dark: boolean, reducedMotion = false): ThemeConfig {
     // antd's placeholder grey reads 2:1; a placeholder is still text someone has to read.
     colorTextPlaceholder: k.ink3,
     colorBgBase: k.paper,
-    colorBgLayout: k.paper,
+    colorBgLayout: k.canvas,
     colorBgContainer: k.paper,
     colorBgElevated: dark ? "#1b1e25" : "#ffffff",
     colorBorder: k.border,
@@ -166,17 +175,18 @@ export function themeConfig(dark: boolean, reducedMotion = false): ThemeConfig {
     algorithm: dark ? theme.darkAlgorithm : theme.defaultAlgorithm,
     token,
     components: {
-      Layout: { siderBg: k.side, lightSiderBg: k.side, bodyBg: k.paper, headerBg: k.paper },
+      Layout: { siderBg: k.side, lightSiderBg: k.side, bodyBg: k.canvas, headerBg: k.canvas },
       Menu: {
         itemBg: "transparent", subMenuItemBg: "transparent",
-        itemColor: k.ink2, itemHoverColor: k.ink, itemHoverBg: dark ? "#171a20" : "#eaecf0",
-        itemSelectedColor: k.ink, itemSelectedBg: dark ? "#1d2027" : "#e4e7ec",
-        itemActiveBg: dark ? "#1d2027" : "#e4e7ec",
+        itemColor: k.ink2, itemHoverColor: k.ink, itemHoverBg: dark ? "#14171c" : "#e3e6ea",
+        // The page you are on is a sheet of paper, like the panels it shows.
+        itemSelectedColor: k.ink, itemSelectedBg: k.paper,
+        itemActiveBg: k.paper,
         itemHeight: 34, itemMarginInline: 8, itemBorderRadius: 6, iconSize: 15, collapsedIconSize: 16,
       },
       Table: {
-        headerBg: "transparent", headerColor: k.ink3, headerSplitColor: "transparent", headerBorderRadius: 0,
-        rowHoverBg: k.hover, borderColor: k.line, cellPaddingBlockSM: 10, cellPaddingInlineSM: 10,
+        headerBg: k.head, headerColor: k.ink3, headerSplitColor: "transparent", headerBorderRadius: 0,
+        rowHoverBg: k.hover, borderColor: k.line, cellPaddingBlockSM: 10, cellPaddingInlineSM: 12,
         rowExpandedBg: "transparent", expandIconBg: "transparent",
       },
       // White text on these: they keep white whatever the theme (the paper is dark in dark mode).

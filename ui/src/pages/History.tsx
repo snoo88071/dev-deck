@@ -103,7 +103,7 @@ export function HistoryPage({ narrow }: { narrow: boolean }) {
   const line: CSSProperties = narrow
     ? { gridTemplateColumns: "8px minmax(0,1fr) auto", columnGap: 10, rowGap: 2 }
     : { gridTemplateColumns: "8px 168px minmax(0,1fr) 72px", columnGap: 16 };
-  const inset = narrow ? 8 : 12;
+  const inset = narrow ? 12 : 16;
   /** Where the details start: under "what it was about". */
   const indent = narrow ? 18 : 8 + 16 + 168 + 16;
 
@@ -112,17 +112,17 @@ export function HistoryPage({ narrow }: { narrow: boolean }) {
     <div style={{ maxWidth: HISTORY_WIDTH, marginInline: "auto" }}>
       <Flex align="center" gap={12} wrap style={{ marginBottom: 6 }}>
         <Select allowClear showSearch value={project} onChange={(v) => setProject(v ?? null)} placeholder={t("history.allProjects")}
-          variant="filled" aria-label={t("history.project")} options={projects.map((p) => ({ value: p, label: p }))} style={{ width: narrow ? "100%" : 220 }} />
+          aria-label={t("history.project")} options={projects.map((p) => ({ value: p, label: p }))} style={{ width: narrow ? "100%" : 220 }} />
         {project || deck.filter ? <Typography.Text type="secondary" style={{ fontSize: 13 }}>{t("count.session", { count: rows.length })}</Typography.Text> : null}
       </Flex>
       {!rows.length ? <Nothing text={t("history.noMatch")} style={{ marginTop: 32 }} /> : null}
       {days.map(([day, list]) => (
-        <section key={day} aria-label={dayLabel(day)} style={{ marginInline: -inset }}>
-          <div className="dd-day" style={{ paddingInline: inset }}>
+        <section key={day} aria-label={dayLabel(day)}>
+          <div className="dd-day">
             <Typography.Text strong style={{ fontSize: 13 }}>{dayLabel(day)}</Typography.Text>
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>{t("count.session", { count: list.length })}</Typography.Text>
           </div>
-          <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+          <ul className="dd-list dd-panel">
             {list.map(({ past: p, description: d, description_fresh: fresh }) => {
               const id = p.session_id;
               const isOpen = open.has(id);
@@ -140,8 +140,8 @@ export function HistoryPage({ narrow }: { narrow: boolean }) {
               ].filter(Boolean);
               return (
                 <li key={id} className={`dd-past dd-row${unfolded ? " dd-unfolded" : ""}`}
-                  style={{ borderBottom: `1px solid ${token.colorBorderSecondary}`, background: unfolded ? token.colorFillTertiary : undefined }}>
-                  <div style={{ display: "grid", gridTemplateColumns: `minmax(0,1fr) ${narrow ? "auto" : "92px"}`, alignItems: "center", columnGap: 12, padding: `11px ${inset}px` }}>
+                  style={{ background: unfolded ? "var(--dd-head)" : undefined }}>
+                  <div style={{ display: "grid", gridTemplateColumns: `minmax(0,1fr) ${narrow ? "auto" : "92px"}`, alignItems: "center", columnGap: 12, padding: `12px ${inset}px` }}>
                     <button type="button" className="dd-bare" aria-expanded={unfolded} onClick={() => toggle(id)} style={line}>
                       <span aria-label={isOpen ? t("history.open") : undefined} role={isOpen ? "img" : undefined}
                         style={{ width: 7, height: 7, borderRadius: "50%", background: isOpen ? k.greenFill : "transparent", alignSelf: "center" }} />

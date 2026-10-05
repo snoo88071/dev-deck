@@ -33,9 +33,12 @@ shared rules in `ui/src/global.css`. This file says why; the code says what.
 
 | Token | Light | Dark | Use |
 |---|---|---|---|
-| paper | `#ffffff` | `#121419` | the page; tables and lists sit on it, no cards |
-| side | `#f4f5f7` | `#0d0f13` | the sidebar |
-| line | `#e9ebef` | `#23272f` | hairlines between rows |
+| canvas | `#f3f4f6` | `#0f1115` | the page, under the panels |
+| paper | `#ffffff` | `#171a20` | a panel: one per list (a day of History, the sessions, a table) |
+| head | `#f9fafb` | `#1d2128` | a panel's header band, a project heading its rows, an opened row |
+| edge | `#e1e4e9` | `#2a2f39` | a panel's border |
+| side | `#eceef1` | `#0b0c0f` | the sidebar; the page you are on is a sheet of paper in it |
+| line | `#eceef1` | `#242830` | hairlines between rows inside a panel |
 | ink | `#161a21` | `#e8eaee` | text, primary buttons, focus ring |
 | ink2 / ink3 | `#454c59` / `#5b6371` | `#b7bdc8` / `#9aa2b0` | secondary / tertiary text (both pass 4.5:1) |
 | green | `#13773a` (fill `#2e9a5c`) | `#4cc584` | free RAM, open, running, switch on |
@@ -60,9 +63,9 @@ commands, ports): the pair chosen in the September redesign. Both are bundled
 
 - Content column at most 1440 px, centered (History: 1080, it is read like prose);
   56 px gutters from 1280 px up, 36 below, 16 narrow.
-- Lists (Sessions, History) and tables (Processes, Scheduled, Cleanup) sit directly on
-  the paper, rows separated by hairlines, hover a shade of the paper. Row content is
-  inset 10 px and the list pulled out by the same amount, so text aligns with the title.
+- Three layers: canvas, panels, rows. Each list or table is one panel (`.dd-panel`), never
+  one card per row; titles, filters and day headings sit on the canvas, outside. Inside a
+  panel rows are separated by hairlines, column titles sit on a header band, rows inset 16 px.
 - Descriptions are capped at 820 px wide: past that a line is too long to read.
 - Paths under the user's profile read from `~`.
 - Below 600 px secondary columns fold into the row; below 900 px the sidebar folds.

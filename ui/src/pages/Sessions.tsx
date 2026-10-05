@@ -129,7 +129,7 @@ export function SessionsPage({ narrow, compact }: { narrow: boolean; compact: bo
   const agoInName = narrow || compact;
   const grid: CSSProperties = { display: "grid", gridTemplateColumns: cols, alignItems: "center", columnGap: narrow ? 12 : 20 };
   const head: CSSProperties = { fontSize: 12, fontWeight: 500, color: token.colorTextTertiary };
-  const inset = narrow ? 8 : 10;
+  const inset = narrow ? 12 : 16;
 
   return (
     <Flex vertical gap={14}>
@@ -137,14 +137,14 @@ export function SessionsPage({ narrow, compact }: { narrow: boolean; compact: bo
       {deck.sessions.length && !rows.length ? <Nothing text={t("sessions.noMatch")} /> : null}
       {!deck.sessions.length && !shown.length ? <Nothing text={t("sessions.none")} /> : null}
       {shown.length ? (
-        <section aria-label={t("nav.sessions")} style={{ marginInline: -inset }}>
+        <section aria-label={t("nav.sessions")} className="dd-panel">
           {narrow ? null : (
-            <div aria-hidden="true" style={{ ...grid, ...head, padding: `8px ${inset}px`, borderBottom: `1px solid ${token.colorBorderSecondary}` }}>
+            <div aria-hidden="true" className="dd-panel-head" style={{ ...grid, ...head, padding: `9px ${inset}px` }}>
               <span /><span>{t("sessions.session")}</span><span style={{ textAlign: "right" }}>{t("sessions.memory")}</span>
               <span>{t("sessions.cpu24")}</span>{compact ? null : <span>{t("sessions.active")}</span>}<span />
             </div>
           )}
-          <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+          <ul className="dd-list">
             {shown.map(({ item: { session: s, description: d, description_fresh: fresh }, leaving }) => {
               const dormant = isDormant(s.last_activity, s.run_time);
               const share = weightOf(s) / max;
@@ -157,7 +157,7 @@ export function SessionsPage({ narrow, compact }: { narrow: boolean; compact: bo
               const [state, next] = d ? splitDescription(d.text) : ["", null];
               const procs = t("count.process", { count: s.children + 1 });
               return (
-                <li key={s.pid} className={`dd-fold dd-session${leaving ? " gone" : ""}${gained ? " late" : ""}`} style={{ borderBottom: `1px solid ${token.colorBorderSecondary}` }}>
+                <li key={s.pid} className={`dd-fold dd-session${leaving ? " gone" : ""}${gained ? " late" : ""}`}>
                   <div className="dd-row">
                     <div style={{ ...grid, padding: `14px ${inset}px`, opacity: busy ? 0.55 : 1, transition: "opacity .2s" }}>
                       <Button type="text" size="small" aria-expanded={expanded} aria-label={t("sessions.details")} className="dd-expand"

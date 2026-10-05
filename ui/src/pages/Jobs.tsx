@@ -186,7 +186,8 @@ export function JobsPage({ narrow }: { narrow: boolean }) {
   ];
 
   return (
-    <Table<Row> size="small" pagination={false} style={{ marginInline: -10 }} columns={columns} dataSource={data} tableLayout="fixed"
+    <Table<Row> size="small" pagination={false} className="dd-panel" columns={columns} dataSource={data} tableLayout="fixed"
+      rowClassName={(r) => (r.kind === "group" ? "dd-group-row" : "")}
       locale
 ={{ emptyText: <Nothing text={t("jobs.none")} /> }}
       expandable={{

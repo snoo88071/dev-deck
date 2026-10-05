@@ -165,7 +165,7 @@ export function CleanupPage({ narrow }: { narrow: boolean }) {
         <Typography.Text type="secondary" style={{ fontSize: 13, maxWidth: 760 }}>{t("cleanup.shadowText")}</Typography.Text>
         {scanButton}
       </Flex>
-      <Table<ProposalRecord> size="small" rowKey="id" pagination={false} style={{ marginInline: -10 }} columns={columns} dataSource={rows} tableLayout="fixed"
+      <Table<ProposalRecord> size="small" rowKey="id" pagination={false} className="dd-panel" columns={columns} dataSource={rows} tableLayout="fixed"
         locale={{ emptyText: <Nothing text={deck.filter ? t("cleanup.noMatch") : t("cleanup.none")} /> }}
         expandable={{
           // Open by default, new proposals included: the evidence is what you judge.
@@ -176,7 +176,7 @@ export function CleanupPage({ narrow }: { narrow: boolean }) {
               <ul style={{ margin: 0, paddingInlineStart: 18, color: token.colorTextSecondary, fontSize: 13 }}>
                 {r.evidence.map((e) => <li key={e}>{e}</li>)}
               </ul>
-              <Input size="small" variant="filled" placeholder={t("cleanup.why")} aria-label={t("cleanup.why")}
+              <Input size="small" placeholder={t("cleanup.why")} aria-label={t("cleanup.why")}
 
                 value={notes[r.id] ?? ""} onChange={(e) => setNotes((n) => ({ ...n, [r.id]: e.target.value }))} style={{ maxWidth: 420 }} />
             </Flex>
